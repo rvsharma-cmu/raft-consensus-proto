@@ -1,37 +1,37 @@
 package lib;
 
 import java.io.Serializable;
-import java.util.Vector;
+import java.util.LinkedList;
 
 public class AppendEntriesArgs implements Serializable{
 	
 	/**
-	 * 
+	 * Arguments to be sent for append entries to all followers by the leader
 	 */
 	private static final long serialVersionUID = 1L;
 	private int term; 
 	private int leaderId; 
 	private int prevLogIndex;
 	private int prevLogTerm; 
-	public Vector<LogEntry> entries; 
-	private int leaderCommit;
+	public LinkedList<LogEntry> entries; 
+	public int leaderCommit;
 	
 	/**
 	 * @param term - leader's term 
 	 * @param leaderId - so follower's can redirect client 
 	 * @param prevLogIndex
 	 * @param prevLogTerm
-	 * @param entries
+	 * @param logEntries
 	 * @param leaderCommit
 	 */
 	public AppendEntriesArgs(int term, int leaderId, int prevLogIndex, 
-			int prevLogTerm, Vector<LogEntry> entries, int leaderCommit) {
+			int prevLogTerm, LinkedList<LogEntry> logEntries, int leaderCommit) {
 		super();
 		this.term = term;
 		this.leaderId = leaderId;
 		this.prevLogIndex = prevLogIndex;
 		this.prevLogTerm = prevLogTerm;
-		this.entries = entries;
+		this.entries = logEntries;
 		this.leaderCommit = leaderCommit;
 	}
 	public int getTerm() {
@@ -58,10 +58,10 @@ public class AppendEntriesArgs implements Serializable{
 	public void setPrevLogTerm(int prevLogTerm) {
 		this.prevLogTerm = prevLogTerm;
 	}
-	public Vector<LogEntry> getEntries() {
+	public LinkedList<LogEntry> getEntries() {
 		return entries;
 	}
-	public void setEntries(Vector<LogEntry> entries) {
+	public void setEntries(LinkedList<LogEntry> entries) {
 		this.entries = entries;
 	}
 	public int getLeaderCommit() {

@@ -15,8 +15,8 @@ public class LogEntry implements Serializable{
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	private Integer term; 
-	private Integer index; 
+	public Integer term; 
+	public Integer index; 
 	public int getTerm() {
 		return term;
 	}

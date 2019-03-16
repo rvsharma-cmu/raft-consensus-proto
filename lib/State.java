@@ -1,6 +1,7 @@
 package lib;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -12,6 +13,7 @@ import java.util.List;
  *
  */
 public class State {
+	//TODO: convert to private variables and expose via get and put
 
 	// list of possible state of each server
 	public enum States {
@@ -20,8 +22,72 @@ public class State {
 
 	// list of persistent states on all servers
 	public int currentTerm;
+	public int getCurrentTerm() {
+		return currentTerm;
+	}
+
+	public void setCurrentTerm(int currentTerm) {
+		this.currentTerm = currentTerm;
+	}
+
+	public Integer getVotedFor() {
+		return votedFor;
+	}
+
+	public void setVotedFor(Integer votedFor) {
+		this.votedFor = votedFor;
+	}
+
+	public LinkedList<LogEntry> getLog() {
+		return log;
+	}
+
+	public void setLog(LinkedList<LogEntry> log) {
+		this.log = log;
+	}
+
+	public int getCommitIndex() {
+		return commitIndex;
+	}
+
+	public void setCommitIndex(int commitIndex) {
+		this.commitIndex = commitIndex;
+	}
+
+	public int getLastApplied() {
+		return lastApplied;
+	}
+
+	public void setLastApplied(int lastApplied) {
+		this.lastApplied = lastApplied;
+	}
+
+	public int getNextIndex(int index) {
+		return nextIndex[index];
+	}
+
+//	public void setNextIndex(int nextIndex) {
+//		this.nextIndex = nextIndex;
+//	}
+
+	public int[] getMatchIndex() {
+		return matchIndex;
+	}
+
+	public void setMatchIndex(int[] matchIndex) {
+		this.matchIndex = matchIndex;
+	}
+
+	public States getNodeState() {
+		return nodeState;
+	}
+
+	public void setNodeState(States nodeState) {
+		this.nodeState = nodeState;
+	}
+
 	public Integer votedFor;
-	public List<LogEntry> log;
+	public LinkedList<LogEntry> log;
 
 	// volatile state on all servers
 	public int commitIndex;
@@ -43,7 +109,7 @@ public class State {
 	public State(int numPeers) {
 
 		nodeState = States.FOLLOWER;
-		log = new ArrayList<LogEntry>();
+		log = new LinkedList<LogEntry>();
 		votedFor = 0;
 
 		nextIndex = new int[numPeers];
