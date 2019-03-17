@@ -11,8 +11,8 @@ import lib.State.States;
 
 public class ElectionThread extends Thread {
 	
-	private int startId;
-	private int endId;
+	private int src_id;
+	private int dest_id;
 
 	private RequestVoteArgs requestVoteArgs;
 	private RaftNode node;
@@ -25,8 +25,8 @@ public class ElectionThread extends Thread {
 	public ElectionThread(RaftNode node, int start, int end, RequestVoteArgs args) {
 		
 		this.node = node; 
-		this.startId = start; 
-		this.endId = end; 
+		this.src_id = start; 
+		this.dest_id = end; 
 		this.requestVoteArgs = args; 
 	}
 
@@ -35,7 +35,7 @@ public class ElectionThread extends Thread {
 	public void run() {
 		// TODO Auto-generated method stub
 		byte[] serializeMessage = RaftUtilities.serialize(this.requestVoteArgs);
-		this.requestForVoteMessage = new Message(MessageType.RequestVoteArgs, this.startId, this.endId, serializeMessage);
+		this.requestForVoteMessage = new Message(MessageType.RequestVoteArgs, this.src_id, this.dest_id, serializeMessage);
 		
 		try {
 			replyForVoteMessage = this.node.lib.sendMessage(this.requestForVoteMessage);
@@ -68,18 +68,10 @@ public class ElectionThread extends Thread {
 		{
 			node.nodeState.setCurrentTerm(requestVoteReply.getTerm());
 			node.nodeState.setNodeState(States.FOLLOWER);
-			node.numOfVotes = 0;
 			node.nodeState.setVotedFor(null);
-			this.node.lock.unlock();
-			try {
-				this.join();
-			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			return;
-		}
-		if(requestVoteReply.getTerm() < node.nodeState.currentTerm)
+			node.numOfVotes = 0;
+			
+		} else if(requestVoteReply.getTerm() < node.nodeState.currentTerm)
 		{
 			this.node.lock.unlock();
 			try {
@@ -89,43 +81,45 @@ public class ElectionThread extends Thread {
 				e1.printStackTrace();
 			}
 			return;
-		}
-		synchronized (node.nodeState) {
-			if(requestVoteReply.isVoteGranted() && node.nodeState.getNodeState() == lib.State.States.CANDIDATE)
-			{
-				node.numOfVotes++;
-				node.receivedRequest = true;
-				
-				if(node.numOfVotes>node.majorityVotes)
+		} else {
+			synchronized (node.nodeState) {
+				if(requestVoteReply.isVoteGranted() && node.nodeState.getNodeState() == lib.State.States.CANDIDATE)
 				{
-					node.nodeState.setNodeState(lib.State.States.LEADER);
-					int size = node.nodeState.log.size()-1;
-					LogEntry logEntry = node.nodeState.log.peekLast();
-					int lastIndex = 0;
-					if(logEntry!=null)
+					node.numOfVotes++;
+					node.receivedRequest = true;
+					
+					if(node.numOfVotes>node.majorityVotes)
 					{
-						lastIndex = logEntry.getIndex();
+						node.nodeState.setNodeState(lib.State.States.LEADER);
+						
+						LogEntry logEntry = node.nodeState.log.peekLast();
+						int lastIndex = 0;
+						if(logEntry!=null)
+						{
+							lastIndex = logEntry.getIndex();
+						} else {
+							lastIndex = 0;
+						}
+						for(int i=0;i<node.numPeers;i++)
+						{
+							node.nodeState.nextIndex[i] = lastIndex+1;
+						}
+						node.sendHeartbeats();
+						node.nodeState.notify();
+						
+						
 					}
-					for(int i=0;i<node.numPeers;i++)
-					{
-						node.nodeState.nextIndex[i] = lastIndex+1;
-					}
-					node.sendHeartbeats();
-					node.nodeState.notify();
-					this.node.lock.unlock();
-					try {
-						this.join();
-					} catch (InterruptedException e1) {
-						// TODO Auto-generated catch block
-						e1.printStackTrace();
-					}
-					return;
 				}
 			}
-			
 		}
-	
-		
+		this.node.lock.unlock();
+		try {
+			this.join();
+		} catch (InterruptedException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		return;
 	}
 	
 	
