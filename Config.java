@@ -109,7 +109,7 @@ public class Config extends UnicastRemoteObject implements Remote {
         for( int i = 0; i < numServers; i++ ) {
 
 
-           this.applyMsgMap.put(i, new LinkedBlockingDeque<>());
+           this.applyMsgMap.put(i, new LinkedBlockingDeque<ApplyMsg>());
            BlockingQueue<ApplyMsg> applyMsgsQ = this.applyMsgMap.get(i);
            int nodeID = i;
 
@@ -256,7 +256,7 @@ public class Config extends UnicastRemoteObject implements Remote {
         int starts = 0;
         long t0 = System.currentTimeMillis();
 
-        while( (System.currentTimeMillis() - t0 ) < 10000 ) { /* Wait for 10 seconds before giving up. */
+        while( (System.currentTimeMillis() - t0 ) <10000 ) { /* Wait for 10 seconds before giving up. */
 
             int index = -1;
 

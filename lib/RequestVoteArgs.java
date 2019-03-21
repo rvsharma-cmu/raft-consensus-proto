@@ -20,10 +20,10 @@ public class RequestVoteArgs implements Serializable{
 	public int lastLogIndex; 
 	public int lastLogTerm; 
 
-	public RequestVoteArgs() {
-		this(0, 0, 0, 0);
-    }
-	
+//	public RequestVoteArgs() {
+//		this(0, 0, 0, 0);
+//    }
+//	
 	public RequestVoteArgs(int term, int candidateId, int lastLogIndex, int lastLogTerm) {
 		
 		this.terms = term;

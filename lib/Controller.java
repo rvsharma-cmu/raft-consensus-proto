@@ -24,6 +24,7 @@ import java.util.concurrent.*;
  *
  * @author Sphoorti Joglekar, Priya Avhad, Yijia Cui, Zonglin Wang
  */
+@SuppressWarnings("unused")
 public class Controller extends UnicastRemoteObject implements MessagingLayer {
     /**
      * For byte serialization.

@@ -2,123 +2,47 @@ package lib;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 
 /**
- * This class implements the state of the servers which are updated on the local
- * stable storage before responding to the RPCs
- * 
- * Three states namely: LEADER, CANDIDATE, FOLLOWER
- * 
- *
+ * Persistent & Volatile state on servers
  */
 public class State {
-	//TODO: convert to private variables and expose via get and put
+    public enum States{FOLLOWER, CANDIDATE, LEADER}
+    private States nodeState = States.FOLLOWER;
+    public int currentTerm;
+    public Integer votedFor = null; // Candidate ID that received vote in $Current Term$, (or null if none<hasn't voted yet>)
+    public LinkedList<LogEntry> log; //
 
-	// list of possible state of each server
-	public enum States {
-		LEADER, CANDIDATE, FOLLOWER
-	};
+    /* Volatile state on all Servers */
+    public int commitIndex; // index of highest log entry known to be committed (initialized to 0, increases monotonically)
+    public int lastApplied; // index of highest log entry applied to state machine (initialized to 0, increases monotonically)
 
-	// list of persistent states on all servers
-	public int currentTerm;
-	public int getCurrentTerm() {
-		return currentTerm;
-	}
+    /* Volatile state on leader */
+    public int[] nextIndex; // for each server, index of the next log entry to send to that server (initialized to leader last log index + 1)
+    public int[] matchIndex; //for each server, index of highest log entry known to be replicated on server (initialized to 0, increases monotonically)
 
-	public void setCurrentTerm(int currentTerm) {
-		this.currentTerm = currentTerm;
-	}
+    public State(int num_peers){
+        this.currentTerm = 0;
+        log = new LinkedList<LogEntry>();
 
-	public Integer getVotedFor() {
-		return votedFor;
-	}
+        commitIndex = 0;
+        lastApplied = 0;
 
-	public void setVotedFor(Integer votedFor) {
-		this.votedFor = votedFor;
-	}
+         /*
+            When leader comes to power, initializes all nextIndex values to the index just after the last one in its log
+         */
 
-	public LinkedList<LogEntry> getLog() {
-		return log;
-	}
+        nextIndex = new int[num_peers];
+        matchIndex = new int[num_peers];
+    }
 
-	public void setLog(LinkedList<LogEntry> log) {
-		this.log = log;
-	}
+    public States getNodeState(){
 
-	public int getCommitIndex() {
-		return commitIndex;
-	}
+        return this.nodeState;
+    }
 
-	public void setCommitIndex(int commitIndex) {
-		this.commitIndex = commitIndex;
-	}
+    public void setNodeState(States new_role){
 
-	public int getLastApplied() {
-		return lastApplied;
-	}
-
-	public void setLastApplied(int lastApplied) {
-		this.lastApplied = lastApplied;
-	}
-
-	public int getNextIndex(int index) {
-		return nextIndex[index];
-	}
-
-//	public void setNextIndex(int nextIndex) {
-//		this.nextIndex = nextIndex;
-//	}
-
-	public int[] getMatchIndex() {
-		return matchIndex;
-	}
-
-	public void setMatchIndex(int[] matchIndex) {
-		this.matchIndex = matchIndex;
-	}
-
-	public States getNodeState() {
-		return nodeState;
-	}
-
-	public void setNodeState(States nodeState) {
-		this.nodeState = nodeState;
-	}
-
-	public Integer votedFor;
-	public LinkedList<LogEntry> log;
-
-	// volatile state on all servers
-	public int commitIndex;
-	public int lastApplied;
-
-	// volatile state on the leaders
-	public int[] nextIndex;
-	public int[] matchIndex;
-
-	// nodestate variable for a server
-	public States nodeState;
-
-	/**
-	 * Constructor - each node starts up as followers with its variable initialized
-	 * to 0
-	 * 
-	 * @param numPeers number of servers in the cluster
-	 */
-	public State(int numPeers) {
-
-		nodeState = States.FOLLOWER;
-		log = new LinkedList<LogEntry>();
-		votedFor = 0;
-
-		nextIndex = new int[numPeers];
-		matchIndex = new int[numPeers];
-
-		commitIndex = 0;
-		lastApplied = 0;
-
-		currentTerm = 0;
-	}
-
+        this.nodeState = new_role;
+    }
 }

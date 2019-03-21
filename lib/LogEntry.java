@@ -15,8 +15,10 @@ public class LogEntry implements Serializable{
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	public Integer term; 
-	public Integer index; 
+	public int term; 
+	public int index; 
+	public int command;
+
 	public int getTerm() {
 		return term;
 	}
@@ -25,7 +27,7 @@ public class LogEntry implements Serializable{
 		this.term = term;
 	}
 
-	public Integer getIndex() {
+	public int getIndex() {
 		return index;
 	}
 
@@ -41,7 +43,6 @@ public class LogEntry implements Serializable{
 		this.command = command;
 	}
 
-	public int command;
 	
 	
 	/**
@@ -49,8 +50,8 @@ public class LogEntry implements Serializable{
 	 * @param index - position of the command in the log 
 	 * @param command - given to the cluster leader to commit
 	 */
-	public LogEntry(int term, int index, int command) {
-		super();
+	public LogEntry(int command, int index, int term) {
+		//super();
 		this.term = term;
 		this.index = index;
 		this.command = command;

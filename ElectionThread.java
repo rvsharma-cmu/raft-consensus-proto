@@ -66,9 +66,9 @@ public class ElectionThread extends Thread {
 		
 		if(requestVoteReply.getTerm() > node.nodeState.currentTerm)
 		{
-			node.nodeState.setCurrentTerm(requestVoteReply.getTerm());
+			node.nodeState.currentTerm = (requestVoteReply.getTerm());
 			node.nodeState.setNodeState(States.FOLLOWER);
-			node.nodeState.setVotedFor(null);
+			node.nodeState.votedFor = (null);
 			node.numOfVotes = 0;
 			
 		} else if(requestVoteReply.getTerm() < node.nodeState.currentTerm)

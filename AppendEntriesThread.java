@@ -1,7 +1,7 @@
 import java.rmi.RemoteException;
 
 import lib.AppendEntriesArgs;
-import lib.AppendEntryReply;
+import lib.AppendEntriesReply;
 import lib.ApplyMsg;
 import lib.LogEntry;
 import lib.Message;
@@ -12,8 +12,8 @@ import lib.State.States;
 public class AppendEntriesThread extends Thread {
 
 	RaftNode node;
-	int startId;
-	int endId;
+	int srcId;
+	int destId;
 	Message appendEntriesRequestMessage;
 	Message appendEntriesReplyMessage;
 	AppendEntriesArgs appendEntryArgs;
@@ -21,8 +21,8 @@ public class AppendEntriesThread extends Thread {
 	public AppendEntriesThread(RaftNode node, int startID, int endID, AppendEntriesArgs arguments) {
 
 		this.node = node;
-		this.startId = startID;
-		this.endId = endID;
+		this.srcId = startID;
+		this.destId = endID;
 		this.appendEntryArgs = arguments;
 	}
 
@@ -31,7 +31,7 @@ public class AppendEntriesThread extends Thread {
 
 		byte[] serializeMessage = RaftUtilities.serialize(this.appendEntryArgs);
 		// TODO:check the src id once
-		this.appendEntriesRequestMessage = new Message(MessageType.AppendEntriesArgs, this.node.getId(), this.endId,
+		this.appendEntriesRequestMessage = new Message(MessageType.AppendEntriesArgs, this.node.getId(), this.destId,
 				serializeMessage);
 
 		try {
@@ -56,15 +56,15 @@ public class AppendEntriesThread extends Thread {
 				e.printStackTrace();
 			}
 			return;
-		}
+		} else {
 		this.node.lock.lock();
-		AppendEntryReply appendEntryReply = (AppendEntryReply) RaftUtilities
+		AppendEntriesReply appendEntriesReply = (AppendEntriesReply) RaftUtilities
 				.deserialize(appendEntriesReplyMessage.getBody());
-		if (appendEntryReply.term > node.nodeState.currentTerm) {
+		if (appendEntriesReply.term > node.nodeState.currentTerm) {
 			// this is not the right leader
-			node.nodeState.setCurrentTerm(appendEntryReply.term);
+			node.nodeState.currentTerm= (appendEntriesReply.term);
 			node.nodeState.setNodeState(States.FOLLOWER);
-			node.nodeState.setVotedFor(null);
+			node.nodeState.votedFor = null;
 			node.numOfVotes = 0;
 			node.lock.unlock();
 			try {
@@ -76,8 +76,8 @@ public class AppendEntriesThread extends Thread {
 			return;
 
 		}
-		if (!appendEntryReply.success) {
-			node.nodeState.nextIndex[endId] = node.nodeState.nextIndex[endId] - 1;
+		if (!appendEntriesReply.success) {
+			node.nodeState.nextIndex[destId] = node.nodeState.nextIndex[destId] - 1;
 
 			node.lock.unlock();
 			try {
@@ -91,25 +91,33 @@ public class AppendEntriesThread extends Thread {
 			if (appendEntryArgs.entries.size() > 0) {
 				int index = appendEntryArgs.entries.size() - 1;
 				lib.State nodeState = this.node.nodeState;
-				nodeState.matchIndex[endId] = appendEntryArgs.entries.get(index).getIndex();
-				nodeState.nextIndex[endId] = appendEntryArgs.entries.get(index).getIndex() + 1;
-				int sizeOfLog = nodeState.log.size() - 1;
+				nodeState.matchIndex[destId] = appendEntryArgs.entries.get(index).getIndex();
+				nodeState.nextIndex[destId] = appendEntryArgs.entries.get(index).getIndex() + 1;
+				
 				LogEntry lastLogEntry = nodeState.log.peekLast();
 				int lastIndexLogged = 0;
 				if (lastLogEntry != null) {
 					lastIndexLogged = lastLogEntry.getIndex();
+				} else {
+					lastIndexLogged = 0; 
 				}
-				for (int i = nodeState.commitIndex + 1; i <= lastIndexLogged; i++) {
+				for (int i = this.node.nodeState.commitIndex + 1; i <= lastIndexLogged; i++) {
+					
 					int count = 0;
+					
 					for (int j = 0; j < this.node.numPeers; j++) {
-						if (nodeState.matchIndex[j] >= i) {
+						if (this.node.nodeState.matchIndex[j] >= i) {
 							count++;
 						}
 					}
 					if (count > this.node.majorityVotes
-							&& (nodeState.log.get(i - 1).getTerm() == nodeState.currentTerm)) {
+							&& (this.node.nodeState.log.get(i - 1).getTerm() 
+									== 
+							this.node.nodeState.currentTerm)) {
+						
 						for (int k = nodeState.commitIndex + 1; k <= i; k++) {
-							ApplyMsg applyMsg = new ApplyMsg(this.node.getId(), k, nodeState.log.get(k - 1).command,
+							ApplyMsg applyMsg = 
+									new ApplyMsg(this.node.getId(), k, nodeState.log.get(k - 1).command,
 									false, null);
 							try {
 								this.node.lib.applyChannel(applyMsg);
@@ -133,7 +141,7 @@ public class AppendEntriesThread extends Thread {
 				}
 			}
 		}
-
+		}
 		node.lock.unlock();
 		try {
 			this.join();

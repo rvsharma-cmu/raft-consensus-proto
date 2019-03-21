@@ -1,11 +1,12 @@
 import java.rmi.RemoteException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 
 import lib.AppendEntriesArgs;
-import lib.AppendEntryReply;
+import lib.AppendEntriesReply;
 import lib.ApplyMsg;
 import lib.GetStateReply;
 import lib.LogEntry;
@@ -106,7 +107,7 @@ public class RaftNode implements MessageHandling, Runnable {
 	@Override
 	public GetStateReply getState() {
 
-		GetStateReply reply = new GetStateReply(this.nodeState.getCurrentTerm(),
+		GetStateReply reply = new GetStateReply(this.nodeState.currentTerm,
 				(this.nodeState.getNodeState() == State.States.LEADER));
 		return reply;
 	}
@@ -132,7 +133,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		} else if (type == MessageType.AppendEntriesArgs) {
 
 			AppendEntriesArgs append_args = (AppendEntriesArgs) RaftUtilities.deserialize(message.getBody());
-			AppendEntryReply reply = AppendEntriesHandle(append_args);
+			AppendEntriesReply reply = AppendEntriesHandle(append_args);
 			byte[] payload = RaftUtilities.serialize(reply);
 			respond_message = new Message(MessageType.AppendEntryReply, dest_id, src_id, payload);
 
@@ -219,14 +220,14 @@ public class RaftNode implements MessageHandling, Runnable {
 	 * @param req_args AppendEntries RPC's args
 	 * @return
 	 */
-	public AppendEntryReply AppendEntriesHandle(AppendEntriesArgs req_args) {
-		AppendEntryReply append_entry_reply;
+	public AppendEntriesReply AppendEntriesHandle(AppendEntriesArgs req_args) {
+		AppendEntriesReply append_entry_reply;
 		boolean if_success = false;
 
 		this.lock.lock();
 
 		if (req_args.getTerm() < this.nodeState.currentTerm) {
-			append_entry_reply = new AppendEntryReply(this.nodeState.currentTerm, if_success);
+			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
 
 			this.receivedRequest = true;
 			this.lock.unlock();
@@ -263,7 +264,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		if (!consistency_check) {
 			if_success = false;
 
-			append_entry_reply = new AppendEntryReply(this.nodeState.currentTerm, if_success);
+			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
 
 			this.receivedRequest = true;
 			this.lock.unlock();
@@ -272,7 +273,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		} else {
 
 			if_success = true;
-			LinkedList<LogEntry> leader_logs = req_args.entries;
+			ArrayList<LogEntry> leader_logs = req_args.entries;
 
 			if (leader_logs.size() == 0) {
 				for (int j = this.nodeState.log.size() - 1; j >= prevIndex; j--) {
@@ -326,7 +327,7 @@ public class RaftNode implements MessageHandling, Runnable {
 					}
 				}
 			}
-			append_entry_reply = new AppendEntryReply(this.nodeState.currentTerm, if_success);
+			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
 
 			this.receivedRequest = true;
 
@@ -338,9 +339,9 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 	}
 
-	public LinkedList<LogEntry> retrieveLogs(List<LogEntry> serverEntries, int index) {
+	public ArrayList<LogEntry> retrieveLogs(List<LogEntry> serverEntries, int index) {
 
-		LinkedList<LogEntry> resultLogs = new LinkedList<LogEntry>();
+		ArrayList<LogEntry> resultLogs = new ArrayList<LogEntry>();
 
 		int logLength = serverEntries.size();
 		if (logLength < index)
@@ -409,18 +410,18 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			for (threadNum = 0; threadNum < this.numPeers; threadNum++) {
 				if(threadNum == this.nodeId) continue;
-				int nextIndex = this.nodeState.getNextIndex(threadNum);
-				LinkedList<LogEntry> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex);
+				int nextIndex = this.nodeState.nextIndex[threadNum];
+				ArrayList<LogEntry> logEntries = this.retrieveLogs(nodeState.log, nextIndex);
 
 				int prevIndex = nextIndex - 1;
 				int prevTerm;
 				if (prevIndex != 0) {
-					prevTerm = this.nodeState.getLog().get(prevIndex - 1).getTerm();
+					prevTerm = this.nodeState.log.get(prevIndex - 1).getTerm();
 				} else {
 					prevTerm = 0; 
 				}
-				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex,
-						prevTerm, logEntries, this.nodeState.getCommitIndex());
+				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.currentTerm, this.nodeId, prevIndex,
+						prevTerm, logEntries, this.nodeState.commitIndex);
 
 				AppendEntriesThread thread = new AppendEntriesThread(this, this.nodeId, threadNum, entries);
 				// threadNum++;
@@ -436,7 +437,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		int lastIndex, lastTerm;
 		int threadNumber;
 
-		nodeState.setVotedFor(this.nodeId);
+		nodeState.votedFor = (this.nodeId);
 		numOfVotes = 0;
 		numOfVotes++;
 		
@@ -455,7 +456,7 @@ public class RaftNode implements MessageHandling, Runnable {
 			if(threadNumber == this.nodeId) 
 				continue;
 
-			RequestVoteArgs args = new RequestVoteArgs(nodeState.getCurrentTerm(), nodeId, lastIndex, lastTerm);
+			RequestVoteArgs args = new RequestVoteArgs(nodeState.currentTerm, nodeId, lastIndex, lastTerm);
 
 			ElectionThread electionThread = new ElectionThread(this, this.nodeId, threadNumber, args);
 			// threadNumber++;
