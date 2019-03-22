@@ -51,7 +51,7 @@ public class HeartbeatHandler extends ThreadUtility {
 				
 			} else {
 				if (appendEntriesArgs.entries.size() > 0) {
-					ji();
+					updateIndex();
 				}
 			}
 			node.lock.unlock();
@@ -64,7 +64,7 @@ public class HeartbeatHandler extends ThreadUtility {
 	/**
 	 * TODO:rename
 	 */
-	public void ji() {
+	public void updateIndex() {
 		int index = appendEntriesArgs.entries.size() - 1;
 		lib.State nodeState = this.node.nodeState;
 		nodeState.matchIndex[destId] = appendEntriesArgs.entries.get(index).getIndex();
