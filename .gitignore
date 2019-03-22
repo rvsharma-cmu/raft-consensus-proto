@@ -7,3 +7,5 @@
 /RaftTest.class
 /ThreadInterface.class
 /ThreadUtility.class
+/HeartBeatHandler.class
+/HeartbeatHandler.class

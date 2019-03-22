@@ -342,7 +342,7 @@ public class RaftNode implements MessageHandling, Runnable {
 				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex,
 						prevTerm, logEntries, this.nodeState.getCommitIndex());
 
-				AppendEntriesThread thread = new AppendEntriesThread(this, this.nodeId, threadNum, entries);
+				HeartbeatHandler thread = new HeartbeatHandler(this, this.nodeId, threadNum, entries);
 				thread.start();
 
 			}
