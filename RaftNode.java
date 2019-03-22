@@ -1,5 +1,6 @@
 import java.rmi.RemoteException;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
@@ -23,6 +24,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 	private static final int TIMEOUT_LOW = 250;
 	private static final int TIMEOUT_HIGH = 500;
+
 	boolean receivedRequest;
 	public TransportLib lib;
 
@@ -77,7 +79,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 
 		LogEntries logEntries = null;
-		if(this.nodeState.getLog()!=null)
+		if (this.nodeState.getLog() != null)
 			logEntries = this.nodeState.getLog().peekLast();
 		int prevLastIndex = 0;
 		if (logEntries != null)
@@ -160,8 +162,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		if (requestVoteArgs.terms < this.nodeState.getCurrentTerm()) {
 			requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), ifGranted);
 
-			this.receivedRequest = true;
-			this.lock.unlock();
+			unlockCriticalSection();
 
 			return requestVoteReply;
 		}
@@ -201,8 +202,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 		requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), ifGranted);
 
-		this.receivedRequest = true;
-		this.lock.unlock();
+		unlockCriticalSection();
 		return requestVoteReply;
 	}
 
@@ -210,160 +210,77 @@ public class RaftNode implements MessageHandling, Runnable {
 	 * Handle AppendEntries RPC request
 	 * 
 	 * @param appendEntriesArgs AppendEntries RPC's args
-	 * @return	The reply message to the invoking method 
+	 * @return The reply message to the invoking method
 	 */
 	public AppendEntriesReply appendEntryRPC(AppendEntriesArgs appendEntriesArgs) {
 		AppendEntriesReply appendEntriesReply = null;
 
-		boolean success;
+		boolean success = false;
 
 		this.lock.lock();
 
-		// Reply false if term < currentTerm (5.1) 
-		
+		// Reply false if term < currentTerm (5.1)
+
 		if (appendEntriesArgs.getTerm() < this.nodeState.getCurrentTerm()) {
-			
-			success = false; 
-			
+
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			this.receivedRequest = true;
-			this.lock.unlock();
+			unlockCriticalSection();
 
 			return appendEntriesReply;
 		}
+
+		// Reply false if log doesn’t contain an entry at prevLogIndex
+		// whose term matches prevLogTerm
 
 		checkMessageTerm(appendEntriesArgs);
 
-		int prevIndex = appendEntriesArgs.getPrevLogIndex();
-		int prevTerm = appendEntriesArgs.getPrevLogTerm();
 		boolean lastCommitCheck = false;
-		LogEntries prevLogEntry = null;
-		if (prevIndex == 0 && prevTerm == 0) {
+
+		if (appendEntriesArgs.getPrevLogIndex() != 0 && appendEntriesArgs.getPrevLogTerm() != 0) {
+
+			lastCommitCheck = checkConsistency(appendEntriesArgs, lastCommitCheck);
+
+		} else {
+
 			lastCommitCheck = true;
-		} else {
-
-			if (this.nodeState.getLog()!=null && this.nodeState.getLog().size() >= prevIndex) {
-				prevLogEntry = this.nodeState.getLog().get(prevIndex - 1);
-				if (prevLogEntry.getIndex() == prevIndex
-						&& prevLogEntry.getTerm() == prevTerm) {
-					lastCommitCheck = true;
-				}
-			}
-
 		}
-		if (!lastCommitCheck) {
-			
-			success = false; 
 
-			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
+		if (lastCommitCheck) {
 
-			this.receivedRequest = true;
-			this.lock.unlock();
-
-			return appendEntriesReply;
-			
-		} else {
+			// consistency check has passed delete the existing entry and
+			// all missing entries append entries from start
 
 			success = true;
-			ArrayList<LogEntries> leaderLogs = appendEntriesArgs.entries;
 
-			if (leaderLogs.size() == 0) {
-				for (int j = this.nodeState.getLog().size() - 1; j >= prevIndex; j--) {
-					this.nodeState.getLog().remove(j);
-				}
-			}
-			//TODO:Raghav to refactor
+			appendMissingLogs(appendEntriesArgs);
 
-			for (int i = 0; i < leaderLogs.size(); i++) {
-				LogEntries entry = leaderLogs.get(i);
-				if (this.nodeState.getLog().size() < entry.getIndex()) {
-					this.nodeState.getLog().add(entry);
-				} else {
-					LogEntries my_entry = this.nodeState.getLog().get(entry.getIndex() - 1);
-					if (my_entry.getTerm() == entry.getTerm()) {
-						continue;
-					} else {
-						for (int j = this.nodeState.getLog().size() - 1; j >= entry.getIndex() - 1; j--) {
-							this.nodeState.getLog().remove(j);
-						}
-						this.nodeState.getLog().add(entry);
-					}
-				}
+			checkLeaderIndex(appendEntriesArgs);
 
-			}
-
-			
-			//TODO:RAGHAV to refactor
-			/*
-			 * If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of
-			 * last new entry)
-			 */
-			if (appendEntriesArgs.leaderCommit > this.nodeState.getCommitIndex()) {
-
-				if (this.nodeState.getLog()!=null && this.nodeState.getLog().peekLast() != null) {
-					int lastIndex = this.nodeState.getLog().getLast().getIndex();// leader_logs.size() == 0 ? 0 :
-																		// this.node_state.log.getLast().index;
-					int update_commitIndex = Math.min(appendEntriesArgs.leaderCommit, lastIndex);
-					for (int i = this.nodeState.getCommitIndex() + 1; i <= update_commitIndex; i++) {
-						LogEntries entry = this.nodeState.getLog().get(i - 1);
-						ApplyMsg msg = new ApplyMsg(this.nodeId, entry.getIndex(), entry.getCommand(), false, null);
-						try {
-							this.lib.applyChannel(msg);
-						} catch (RemoteException e) {
-
-							this.lock.unlock();
-
-							e.printStackTrace();
-						}
-						this.nodeState.setCommitIndex(i);
-						this.nodeState.setLastApplied(i);
-					}
-				}
-			}
+			// send the reply
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			this.receivedRequest = true;
+			unlockCriticalSection();
 
-			this.lock.unlock();
+			return appendEntriesReply;
 
+		} else {
+
+			// consistency check
+
+			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
+
+			unlockCriticalSection();
 
 			return appendEntriesReply;
 		}
-	}
-
-	public void checkMessageTerm(AppendEntriesArgs appendEntriesArgs) {
-		// if RPC request or response contains term 
-		// term T > currentTerm  : set currentTerm = T
-		// convert to FOLLOWER
-		
-		if (appendEntriesArgs.getTerm() > this.nodeState.getCurrentTerm()
-				|| this.nodeState.getNodeState() == State.States.CANDIDATE) {
-			this.nodeState.setCurrentTerm(appendEntriesArgs.getTerm());
-			this.nodeState.setNodeState(State.States.FOLLOWER);
-			this.nodeState.setVotedFor(null); 
-			this.numOfVotes = 0;
-		}
-	}
-
-	public ArrayList<LogEntries> retrieveLogs(List<LogEntries> serverEntries, int index) {
-
-		ArrayList<LogEntries> resultLogs = new ArrayList<LogEntries>();
-
-		int logLength = serverEntries.size();
-		if (logLength < index)
-			return resultLogs;
-		for (int i = index - 1; i < logLength; i++) {
-			resultLogs.add(serverEntries.get(i));
-		}
-		return resultLogs;
 	}
 
 	@Override
 	public void run() {
 
 		while (true) {
-			if (nodeState!=null && nodeState.getNodeState() == State.States.LEADER) {
+			if (nodeState != null && nodeState.getNodeState() == State.States.LEADER) {
 
 				try {
 					Thread.sleep(100);
@@ -417,7 +334,7 @@ public class RaftNode implements MessageHandling, Runnable {
 				if (threadNum == this.nodeId)
 					continue;
 				int nextIndex = this.nodeState.nextIndex[threadNum];
-				ArrayList<LogEntries> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex);
+				ArrayList<LogEntries> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex - 1);
 
 				int prevIndex = nextIndex - 1;
 				int prevTerm;
@@ -426,8 +343,8 @@ public class RaftNode implements MessageHandling, Runnable {
 				} else {
 					prevTerm = 0;
 				}
-				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex, prevTerm,
-						logEntries, this.nodeState.getCommitIndex());
+				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex,
+						prevTerm, logEntries, this.nodeState.getCommitIndex());
 
 				AppendEntriesThread thread = new AppendEntriesThread(this, this.nodeId, threadNum, entries);
 				thread.start();
@@ -438,7 +355,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 	public void startElection() {
 
-		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm()+1);
+		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm() + 1);
 		int lastIndex = 0;
 		int lastTerm = 0;
 		int threadNumber = 0;
@@ -453,8 +370,8 @@ public class RaftNode implements MessageHandling, Runnable {
 		if (logEntries != null) {
 			lastIndex = logEntries.getIndex();
 			lastTerm = logEntries.getTerm();
-		} 
-		for ( ; threadNumber < numPeers; threadNumber++) {
+		}
+		for (; threadNumber < numPeers; threadNumber++) {
 			if (threadNumber == this.nodeId)
 				continue;
 
@@ -464,5 +381,141 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			electionThread.start();
 		}
+	}
+
+	/*
+	 * appendEntriesRPC helper functions
+	 */
+
+	/**
+	 * Check the index of the leader If leaderCommit > commitIndex, set commitIndex
+	 * = min(leaderCommit, index of last new entry)
+	 *
+	 * @param appendEntriesArgs
+	 */
+	public void checkLeaderIndex(AppendEntriesArgs appendEntriesArgs) {
+
+		int nodeCommitIdx = this.nodeState.getCommitIndex();
+		int index = nodeCommitIdx + 1;
+
+		LinkedList<LogEntries> getNodeLogs = this.nodeState.getLog();
+
+		// If leaderCommit > commitIndex, set commitIndex =
+		// min(leaderCommit, index of last new entry)
+
+		if (appendEntriesArgs.leaderCommit > nodeCommitIdx) {
+
+			if (getNodeLogs != null && getNodeLogs.peekLast() != null) {
+
+				int commitIndex = Math.min(appendEntriesArgs.leaderCommit, getNodeLogs.getLast().getIndex());
+
+				while (nodeCommitIdx + 1 <= commitIndex) {
+					LogEntries entry = getNodeLogs.get(nodeCommitIdx);
+
+					ApplyMsg msg = new ApplyMsg(this.nodeId, entry.getIndex(), entry.getCommand(), false, null);
+
+					try {
+						this.lib.applyChannel(msg);
+					} catch (RemoteException e) {
+
+						this.lock.unlock();
+
+						e.printStackTrace();
+					}
+
+					this.nodeState.setCommitIndex(nodeCommitIdx + 1);
+					this.nodeState.setLastApplied(nodeCommitIdx + 1);
+					nodeCommitIdx++;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Append missing logs from the leader to follower
+	 * 
+	 * @param appendEntriesArgs
+	 * 
+	 * @param leaderLogs        logs which are passed from the leader to the
+	 *                          follower
+	 */
+	public void appendMissingLogs(AppendEntriesArgs appendEntriesArgs) {
+
+		ArrayList<LogEntries> leaderLogs = appendEntriesArgs.entries;
+		for (int i = 0; i < leaderLogs.size(); i++) {
+			LogEntries entry = leaderLogs.get(i);
+			if (this.nodeState.getLog().size() < entry.getIndex()) {
+				this.nodeState.getLog().add(entry);
+			} else {
+				LogEntries logEntry = this.nodeState.getLog().get(entry.getIndex() - 1);
+				if (logEntry.getTerm() == entry.getTerm()) {
+					continue;
+				} else {
+					for (int j = this.nodeState.getLog().size() - 1; j >= entry.getIndex() - 1; j--) {
+						this.nodeState.getLog().remove(j);
+					}
+					this.nodeState.getLog().add(entry);
+				}
+			}
+
+		}
+	}
+
+	public boolean checkConsistency(AppendEntriesArgs appendEntriesArgs, boolean lastCommitCheck) {
+		LogEntries prevLogEntry;
+		if (this.nodeState.getLog() != null && this.nodeState.getLog().size() >= appendEntriesArgs.getPrevLogIndex()) {
+
+			prevLogEntry = this.nodeState.getLog().get(appendEntriesArgs.getPrevLogIndex() - 1);
+
+			if (prevLogEntry.getIndex() == appendEntriesArgs.getPrevLogIndex()
+					&& prevLogEntry.getTerm() == appendEntriesArgs.getPrevLogTerm()) {
+
+				lastCommitCheck = true;
+			}
+		}
+		return lastCommitCheck;
+	}
+
+	public void checkMessageTerm(AppendEntriesArgs appendEntriesArgs) {
+
+		// if RPC request or response contains term
+		// term T > currentTerm : set currentTerm = T
+		// convert to FOLLOWER
+
+		if (appendEntriesArgs.getTerm() > this.nodeState.getCurrentTerm()) {
+			this.nodeState.setCurrentTerm(appendEntriesArgs.getTerm());
+			this.nodeState.setNodeState(State.States.FOLLOWER);
+		}
+	}
+
+	/*
+	 * Generic class Helper functions
+	 */
+
+	/**
+	 * Method to unlock the critical section
+	 */
+	public void unlockCriticalSection() {
+		this.receivedRequest = true;
+		this.lock.unlock();
+	}
+
+	/**
+	 * Retrieve entry logs from the given index
+	 * 
+	 * @param serverEntries -
+	 * @param index         - index from which to retrieve the entry logs
+	 * @return
+	 */
+	public ArrayList<LogEntries> retrieveLogs(List<LogEntries> serverEntries, int index) {
+
+		ArrayList<LogEntries> resultLogs = new ArrayList<LogEntries>();
+
+		if (serverEntries.size() > index)
+			for (int i = index; i < serverEntries.size(); i++) {
+				resultLogs.add(serverEntries.get(i));
+			}
+
+		return resultLogs;
 	}
 }
