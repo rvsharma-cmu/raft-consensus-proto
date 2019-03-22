@@ -52,10 +52,10 @@ public class RaftNode implements MessageHandling, Runnable {
 		this.numPeers = numPeers;
 		this.port = port;
 
-		majorityVotes = numPeers / 2;
 
 		lock = new ReentrantLock();
 
+		majorityVotes = this.numPeers / 2;
 		receivedRequest = false;
 		nodeState = new State(numPeers);
 
@@ -65,12 +65,42 @@ public class RaftNode implements MessageHandling, Runnable {
 		thread.start();
 	}
 
+	/**
+	 * On request receipt from a client append entries to the 
+	 * followers 
+	 * @param command The command received from the clients 
+	 */
 	@Override
 	public StartReply start(int command) {
-		this.lock.lock();
-
+		
 		StartReply reply = null;
-		if (this.nodeState.getNodeState() != State.States.LEADER) {
+
+		this.lock.lock();
+		
+		if (this.nodeState.getNodeState() == State.States.LEADER) {
+			
+			LinkedList<LogEntries> logs = this.nodeState.getLog();
+			
+			int lastLogIndex = getLastIndex(logs) + 1;
+
+			for (int i = 0; i < numPeers; i++) {
+				this.nodeState.matchIndex[i] = 0;
+			}
+
+			LogEntries currentEntry = new LogEntries(command, lastLogIndex, this.nodeState.getCurrentTerm());
+			logs.add(currentEntry);
+			this.nodeState.matchIndex[this.nodeId] = lastLogIndex; 
+
+			sendHeartbeats();
+
+			reply = new StartReply(lastLogIndex, this.nodeState.getCurrentTerm(), true);
+
+			this.lock.unlock();
+
+			return reply;
+			
+		} else {
+			
 			reply = new StartReply(DEFAULT_INDEX, DEFAULT_TERM, false);
 
 			this.lock.unlock();
@@ -78,31 +108,26 @@ public class RaftNode implements MessageHandling, Runnable {
 			return reply;
 		}
 
-		LogEntries logEntries = null;
-		if (this.nodeState.getLog() != null)
-			logEntries = this.nodeState.getLog().peekLast();
+	}
+
+	/**
+	 * Function that returns the last log entry 
+	 * in the leader logs 
+	 * @param lastEntry
+	 * @param logs
+	 * @return
+	 */
+	public int getLastIndex(LinkedList<LogEntries> logs) {
+		
+		LogEntries lastEntry = null;
+		
+		if (logs != null)
+			lastEntry = logs.peekLast();
+		
 		int prevLastIndex = 0;
-		if (logEntries != null)
-			prevLastIndex = logEntries.getIndex();
-
-		int lastLogIndex = prevLastIndex + 1;
-
-		for (int i = 0; i < numPeers; i++) {
-			this.nodeState.matchIndex[i] = 0;
-		}
-
-		LogEntries currentEntry = new LogEntries(command, prevLastIndex + 1, this.nodeState.getCurrentTerm());
-		this.nodeState.getLog().add(currentEntry);
-		this.nodeState.matchIndex[this.nodeId] = prevLastIndex + 1; // Update it for itself
-
-		sendHeartbeats();
-
-		reply = new StartReply(lastLogIndex, this.nodeState.getCurrentTerm(), true);
-
-		this.lock.unlock();
-
-		return reply;
-
+		if (lastEntry != null)
+			prevLastIndex = lastEntry.getIndex();
+		return prevLastIndex;
 	}
 
 	@Override
@@ -169,9 +194,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
 			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
-			this.nodeState.setNodeState(State.States.FOLLOWER);
-			this.nodeState.setVotedFor(null);
-			this.numOfVotes = 0;
+			setFollower();
 		}
 		if (this.nodeState.getVotedFor() == null || this.nodeState.getVotedFor() == requestVoteArgs.candidateId) {
 
@@ -181,9 +204,6 @@ public class RaftNode implements MessageHandling, Runnable {
 			if (logEntries != null) {
 				currentLastIndex = logEntries.getIndex();
 				currentLastTerm = logEntries.getTerm();
-			} else {
-				currentLastIndex = 0;
-				currentLastTerm = 0;
 			}
 
 			if (currentLastTerm != requestVoteArgs.lastLogTerm) {
@@ -206,6 +226,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		return requestVoteReply;
 	}
 
+	
 	/**
 	 * Handle AppendEntries RPC request
 	 * 
@@ -380,8 +401,18 @@ public class RaftNode implements MessageHandling, Runnable {
 	}
 
 	/*
-	 * appendEntriesRPC helper functions
+	 * Helper functions
 	 */
+	
+	/**
+	 * Set this node as a Follower and reset its vote and 
+	 * votedFor states 
+	 */
+	public void setFollower() {
+		this.nodeState.setNodeState(State.States.FOLLOWER);
+		this.nodeState.setVotedFor(null);
+		this.numOfVotes = 0;
+	}
 
 	/**
 	 * Check the index of the leader If leaderCommit > commitIndex, set commitIndex

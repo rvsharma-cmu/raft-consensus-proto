@@ -10,7 +10,6 @@ import lib.RaftUtilities;
 
 public class HeartbeatHandler extends ThreadUtility {
 
-	
 	AppendEntriesArgs appendEntriesArgs;
 
 	public HeartbeatHandler(RaftNode node, int startID, int endID, AppendEntriesArgs arguments) {

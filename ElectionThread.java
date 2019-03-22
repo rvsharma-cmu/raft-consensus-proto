@@ -1,4 +1,5 @@
 
+
 import java.rmi.RemoteException;
 
 import lib.LogEntries;
@@ -6,7 +7,9 @@ import lib.Message;
 import lib.MessageType;
 import lib.RaftUtilities;
 import lib.RequestVoteArgs;
-import lib.RequestVoteReply; 
+import lib.RequestVoteReply;
+import lib.State;
+import lib.State.States; 
 
 public class ElectionThread extends ThreadUtility {
 	
