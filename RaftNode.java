@@ -328,20 +328,16 @@ public class RaftNode implements MessageHandling, Runnable {
 		if (this.nodeState.getNodeState() != State.States.LEADER) {
 			return;
 		} else {
-			int threadNum = 0;
-
-			for (; threadNum < this.numPeers; threadNum++) {
+			for (int threadNum = 0; threadNum < this.numPeers; threadNum++) {
 				if (threadNum == this.nodeId)
 					continue;
 				int nextIndex = this.nodeState.nextIndex[threadNum];
 				ArrayList<LogEntries> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex - 1);
 
 				int prevIndex = nextIndex - 1;
-				int prevTerm;
+				int prevTerm = 0;
 				if (prevIndex != 0) {
 					prevTerm = this.nodeState.getLog().get(prevIndex - 1).getTerm();
-				} else {
-					prevTerm = 0;
 				}
 				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex,
 						prevTerm, logEntries, this.nodeState.getCommitIndex());
@@ -396,7 +392,6 @@ public class RaftNode implements MessageHandling, Runnable {
 	public void checkLeaderIndex(AppendEntriesArgs appendEntriesArgs) {
 
 		int nodeCommitIdx = this.nodeState.getCommitIndex();
-		int index = nodeCommitIdx + 1;
 
 		LinkedList<LogEntries> getNodeLogs = this.nodeState.getLog();
 
@@ -444,17 +439,18 @@ public class RaftNode implements MessageHandling, Runnable {
 		ArrayList<LogEntries> leaderLogs = appendEntriesArgs.entries;
 		for (int i = 0; i < leaderLogs.size(); i++) {
 			LogEntries entry = leaderLogs.get(i);
-			if (this.nodeState.getLog().size() < entry.getIndex()) {
-				this.nodeState.getLog().add(entry);
+			LinkedList<LogEntries> logs = this.nodeState.getLog();
+			if (logs.size() < entry.getIndex()) {
+				logs.add(entry);
 			} else {
-				LogEntries logEntry = this.nodeState.getLog().get(entry.getIndex() - 1);
+				LogEntries logEntry = logs.get(entry.getIndex() - 1);
 				if (logEntry.getTerm() == entry.getTerm()) {
 					continue;
 				} else {
-					for (int j = this.nodeState.getLog().size() - 1; j >= entry.getIndex() - 1; j--) {
-						this.nodeState.getLog().remove(j);
+					for (int j = logs.size() - 1; j >= entry.getIndex() - 1; j--) {
+						logs.remove(j);
 					}
-					this.nodeState.getLog().add(entry);
+					logs.add(entry);
 				}
 			}
 
@@ -462,7 +458,7 @@ public class RaftNode implements MessageHandling, Runnable {
 	}
 
 	public boolean checkConsistency(AppendEntriesArgs appendEntriesArgs, boolean lastCommitCheck) {
-		LogEntries prevLogEntry;
+		LogEntries prevLogEntry = null;
 		if (this.nodeState.getLog() != null && this.nodeState.getLog().size() >= appendEntriesArgs.getPrevLogIndex()) {
 
 			prevLogEntry = this.nodeState.getLog().get(appendEntriesArgs.getPrevLogIndex() - 1);

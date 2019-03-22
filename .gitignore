@@ -5,3 +5,5 @@
 /ElectionThread.class
 /RaftNode.class
 /RaftTest.class
+/ThreadInterface.class
+/ThreadUtility.class
