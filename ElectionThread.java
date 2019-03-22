@@ -1,7 +1,7 @@
 
 import java.rmi.RemoteException;
 
-import lib.LogEntry;
+import lib.LogEntries;
 import lib.Message;
 import lib.MessageType;
 import lib.RaftUtilities;
@@ -33,53 +33,40 @@ public class ElectionThread extends Thread {
 
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
+		
 		byte[] serializeMessage = RaftUtilities.serialize(this.requestVoteArgs);
+
 		this.requestForVoteMessage = new Message(MessageType.RequestVoteArgs, this.src_id, this.dest_id, serializeMessage);
 		
 		try {
 			replyForVoteMessage = this.node.lib.sendMessage(this.requestForVoteMessage);
 		} catch (RemoteException e) {
-			// TODO Auto-generated catch block
+
 			e.printStackTrace();
-			try {
-				this.join();
-			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+			terminateThread();
 			return;
 		}
-		if(replyForVoteMessage == null)
-		{
-			try {
-				this.join();
-			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+
+		if(replyForVoteMessage == null){
+			terminateThread();
 			return;
 		}
+		
 		this.requestVoteReply = (RequestVoteReply)RaftUtilities.deserialize(replyForVoteMessage.getBody());
 		
 		this.node.lock.lock();
 		
-		if(requestVoteReply.getTerm() > node.nodeState.currentTerm)
+		if(requestVoteReply.getTerm() > node.nodeState.getCurrentTerm())
 		{
-			node.nodeState.currentTerm = (requestVoteReply.getTerm());
+			node.nodeState.setCurrentTerm(requestVoteReply.getTerm());
 			node.nodeState.setNodeState(States.FOLLOWER);
-			node.nodeState.votedFor = (null);
+			node.nodeState.setVotedFor(null);
 			node.numOfVotes = 0;
 			
-		} else if(requestVoteReply.getTerm() < node.nodeState.currentTerm)
+		} else if(requestVoteReply.getTerm() < node.nodeState.getCurrentTerm())
 		{
 			this.node.lock.unlock();
-			try {
-				this.join();
-			} catch (InterruptedException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+			terminateThread();
 			return;
 		} else {
 			synchronized (node.nodeState) {
@@ -92,13 +79,11 @@ public class ElectionThread extends Thread {
 					{
 						node.nodeState.setNodeState(lib.State.States.LEADER);
 						
-						LogEntry logEntry = node.nodeState.log.peekLast();
+						LogEntries logEntries = node.nodeState.getLog().peekLast();
 						int lastIndex = 0;
-						if(logEntry!=null)
+						if(logEntries!=null)
 						{
-							lastIndex = logEntry.getIndex();
-						} else {
-							lastIndex = 0;
+							lastIndex = logEntries.getIndex();
 						}
 						for(int i=0;i<node.numPeers;i++)
 						{
@@ -113,13 +98,18 @@ public class ElectionThread extends Thread {
 			}
 		}
 		this.node.lock.unlock();
+		terminateThread();
+		return;
+	}
+
+
+	public void terminateThread() {
 		try {
 			this.join();
 		} catch (InterruptedException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		return;
 	}
 	
 	

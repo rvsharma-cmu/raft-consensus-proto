@@ -1,6 +1,5 @@
 import java.rmi.RemoteException;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
@@ -9,7 +8,7 @@ import lib.AppendEntriesArgs;
 import lib.AppendEntriesReply;
 import lib.ApplyMsg;
 import lib.GetStateReply;
-import lib.LogEntry;
+import lib.LogEntries;
 import lib.Message;
 import lib.MessageHandling;
 import lib.MessageType;
@@ -22,8 +21,13 @@ import lib.TransportLib;
 
 public class RaftNode implements MessageHandling, Runnable {
 
+	private static final int TIMEOUT_LOW = 250;
+	private static final int TIMEOUT_HIGH = 500;
 	boolean receivedRequest;
 	public TransportLib lib;
+
+	private static final int DEFAULT_INDEX = -1;
+	private static final int DEFAULT_TERM = -1;
 
 	private int nodeId;
 	public int numPeers;
@@ -32,8 +36,6 @@ public class RaftNode implements MessageHandling, Runnable {
 	// random method for generating random heart beat timeouts
 	Random random = new Random();
 	int timeout;
-
-	// state variable for this node
 
 	State nodeState;
 	public int numOfVotes;
@@ -61,42 +63,39 @@ public class RaftNode implements MessageHandling, Runnable {
 		thread.start();
 	}
 
-	/*
-	 * call back.
-	 */
 	@Override
 	public StartReply start(int command) {
 		this.lock.lock();
 
 		StartReply reply = null;
 		if (this.nodeState.getNodeState() != State.States.LEADER) {
-			reply = new StartReply(-1, -1, false);
+			reply = new StartReply(DEFAULT_INDEX, DEFAULT_TERM, false);
 
 			this.lock.unlock();
 
 			return reply;
 		}
-		System.out.println(System.currentTimeMillis()+"Node "+this.nodeId+" Client Submit Commad "+command);
-        
-		LogEntry logEntry = this.nodeState.log.peekLast();
+
+		LogEntries logEntries = null;
+		if(this.nodeState.getLog()!=null)
+			logEntries = this.nodeState.getLog().peekLast();
 		int prevLastIndex = 0;
-		if (logEntry != null)
-			prevLastIndex = logEntry.getIndex();
-		else 
-			prevLastIndex = 0;
+		if (logEntries != null)
+			prevLastIndex = logEntries.getIndex();
+
 		int lastLogIndex = prevLastIndex + 1;
 
 		for (int i = 0; i < numPeers; i++) {
 			this.nodeState.matchIndex[i] = 0;
 		}
 
-		LogEntry cur_entry = new LogEntry(command, prevLastIndex + 1, this.nodeState.currentTerm);
-		this.nodeState.log.add(cur_entry);
+		LogEntries currentEntry = new LogEntries(command, prevLastIndex + 1, this.nodeState.getCurrentTerm());
+		this.nodeState.getLog().add(currentEntry);
 		this.nodeState.matchIndex[this.nodeId] = prevLastIndex + 1; // Update it for itself
 
 		sendHeartbeats();
 
-		reply = new StartReply(lastLogIndex, this.nodeState.currentTerm, true);
+		reply = new StartReply(lastLogIndex, this.nodeState.getCurrentTerm(), true);
 
 		this.lock.unlock();
 
@@ -107,47 +106,44 @@ public class RaftNode implements MessageHandling, Runnable {
 	@Override
 	public GetStateReply getState() {
 
-		GetStateReply reply = new GetStateReply(this.nodeState.currentTerm,
+		GetStateReply reply = new GetStateReply(this.nodeState.getCurrentTerm(),
 				(this.nodeState.getNodeState() == State.States.LEADER));
 		return reply;
 	}
 
 	@Override
 	public Message deliverMessage(Message message) {
-		
-		Message respond_message = null;
-		
+
+		Message replyMessage = null;
+
 		MessageType type = message.getType();
-		
-		int src_id = message.getSrc();
-		
-		int dest_id = message.getDest(); // This RaftNode's ID
-		
+
+		int msgSrcId = message.getSrc();
+
+		int msgDstId = message.getDest();
+
+		Object requestArgs = RaftUtilities.deserialize(message.getBody());
+
+		byte[] replyPayload = null;
+
 		if (type == MessageType.RequestVoteArgs) {
-			/* Request For Vote */
-			RequestVoteArgs req_args = (RequestVoteArgs) RaftUtilities.deserialize(message.getBody());
-			RequestVoteReply reply = requestVoteHandle(req_args);
-			byte[] payload = RaftUtilities.serialize(reply);
-			respond_message = new Message(MessageType.RequestVoteReply, dest_id, src_id, payload);
+			RequestVoteReply reply = requestVoteHandle((RequestVoteArgs) requestArgs);
+			replyPayload = RaftUtilities.serialize(reply);
+			replyMessage = new Message(MessageType.RequestVoteReply, msgDstId, msgSrcId, replyPayload);
 
 		} else if (type == MessageType.AppendEntriesArgs) {
 
-			AppendEntriesArgs append_args = (AppendEntriesArgs) RaftUtilities.deserialize(message.getBody());
-			AppendEntriesReply reply = AppendEntriesHandle(append_args);
-			byte[] payload = RaftUtilities.serialize(reply);
-			respond_message = new Message(MessageType.AppendEntryReply, dest_id, src_id, payload);
+			AppendEntriesReply reply = appendEntryRPC((AppendEntriesArgs) requestArgs);
+			replyPayload = RaftUtilities.serialize(reply);
+			replyMessage = new Message(MessageType.AppendEntryReply, msgDstId, msgSrcId, replyPayload);
 
 		}
-		return respond_message;
+		return replyMessage;
 	}
 
-	// main function
 	public static void main(String args[]) throws Exception {
 		if (args.length != 3)
 			throw new Exception("Need 2 args: <port> <id> <num_peers>");
-//		System.out.println(Integer.parseInt(args[0]));
-//		System.out.println(Integer.parseInt(args[1]));
-//		System.out.println(Integer.parseInt(args[2]));
 		RaftNode UN = new RaftNode(Integer.parseInt(args[0]), Integer.parseInt(args[1]), Integer.parseInt(args[2]));
 	}
 
@@ -155,165 +151,163 @@ public class RaftNode implements MessageHandling, Runnable {
 		return this.nodeId;
 	}
 
-	public RequestVoteReply requestVoteHandle(RequestVoteArgs req_args) {
-		RequestVoteReply req_vote_reply;
-		boolean if_granted = false;
+	public RequestVoteReply requestVoteHandle(RequestVoteArgs requestVoteArgs) {
+		RequestVoteReply requestVoteReply;
+		boolean ifGranted = false;
 
 		this.lock.lock();
 
-		/*
-		 * 1. Reply false if term < currentTerm
-		 */
-		if (req_args.terms < this.nodeState.currentTerm) {
-			req_vote_reply = new RequestVoteReply(this.nodeState.currentTerm, if_granted);
+		if (requestVoteArgs.terms < this.nodeState.getCurrentTerm()) {
+			requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), ifGranted);
 
 			this.receivedRequest = true;
 			this.lock.unlock();
 
-			return req_vote_reply;
+			return requestVoteReply;
 		}
 
-		if (req_args.terms > this.nodeState.currentTerm) {
-			this.nodeState.currentTerm = req_args.terms;
+		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
+			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
 			this.nodeState.setNodeState(State.States.FOLLOWER);
-			this.nodeState.votedFor = null; // New Term has Began
+			this.nodeState.setVotedFor(null);
 			this.numOfVotes = 0;
 		}
-		if (this.nodeState.votedFor == null || this.nodeState.votedFor == req_args.candidateId) {
+		if (this.nodeState.getVotedFor() == null || this.nodeState.getVotedFor() == requestVoteArgs.candidateId) {
 
-			
-			LogEntry logEntry = this.nodeState.log.peekLast();
+			LogEntries logEntries = this.nodeState.getLog().peekLast();
 			int currentLastIndex = 0;
 			int currentLastTerm = 0;
-			if (logEntry != null) {
-				currentLastIndex = logEntry.getIndex();
-				currentLastTerm = logEntry.getTerm();
+			if (logEntries != null) {
+				currentLastIndex = logEntries.getIndex();
+				currentLastTerm = logEntries.getTerm();
 			} else {
 				currentLastIndex = 0;
 				currentLastTerm = 0;
 			}
 
-			if (currentLastTerm != req_args.lastLogTerm) {
-				if (currentLastTerm <= req_args.lastLogTerm) {
+			if (currentLastTerm != requestVoteArgs.lastLogTerm) {
+				if (currentLastTerm <= requestVoteArgs.lastLogTerm) {
 					/* candidate’s log is at least as up-to-date as receiver’s log, grant vote */
-					if_granted = true;
-					this.nodeState.votedFor = req_args.candidateId;
+					ifGranted = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
 				}
 			} else {
-				if (currentLastIndex <= req_args.lastLogIndex) {
-					if_granted = true;
-					this.nodeState.votedFor = req_args.candidateId;
+				if (currentLastIndex <= requestVoteArgs.lastLogIndex) {
+					ifGranted = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
 				}
 			}
 
 		}
-		req_vote_reply = new RequestVoteReply(this.nodeState.currentTerm, if_granted);
+		requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), ifGranted);
 
 		this.receivedRequest = true;
 		this.lock.unlock();
-		return req_vote_reply;
+		return requestVoteReply;
 	}
 
 	/**
 	 * Handle AppendEntries RPC request
 	 * 
-	 * @param req_args AppendEntries RPC's args
-	 * @return
+	 * @param appendEntriesArgs AppendEntries RPC's args
+	 * @return	The reply message to the invoking method 
 	 */
-	public AppendEntriesReply AppendEntriesHandle(AppendEntriesArgs req_args) {
-		AppendEntriesReply append_entry_reply;
-		boolean if_success = false;
+	public AppendEntriesReply appendEntryRPC(AppendEntriesArgs appendEntriesArgs) {
+		AppendEntriesReply appendEntriesReply = null;
+
+		boolean success;
 
 		this.lock.lock();
 
-		if (req_args.getTerm() < this.nodeState.currentTerm) {
-			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
+		// Reply false if term < currentTerm (5.1) 
+		
+		if (appendEntriesArgs.getTerm() < this.nodeState.getCurrentTerm()) {
+			
+			success = false; 
+			
+			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
 			this.receivedRequest = true;
 			this.lock.unlock();
 
-			return append_entry_reply;
+			return appendEntriesReply;
 		}
 
-		if (req_args.getTerm() > this.nodeState.currentTerm
-				|| this.nodeState.getNodeState() == State.States.CANDIDATE) {
-			this.nodeState.currentTerm = req_args.getTerm();
-			this.nodeState.setNodeState(State.States.FOLLOWER);
-			this.nodeState.votedFor = null; // New Term has Began
-			this.numOfVotes = 0;
-		}
+		checkMessageTerm(appendEntriesArgs);
 
-		int prevIndex = req_args.getPrevLogIndex();
-		int prevTerm = req_args.getPrevLogTerm();
-		boolean consistency_check = false;
-		if (prevIndex < 0 || prevTerm < 0) { // for Debug
-			System.out.println("!!!!!!!! NEGATIVE INDEX OR TERM !!!!!!!!");
-		}
+		int prevIndex = appendEntriesArgs.getPrevLogIndex();
+		int prevTerm = appendEntriesArgs.getPrevLogTerm();
+		boolean lastCommitCheck = false;
+		LogEntries prevLogEntry = null;
 		if (prevIndex == 0 && prevTerm == 0) {
-			consistency_check = true;
+			lastCommitCheck = true;
 		} else {
 
-			if (this.nodeState.log.size() >= prevIndex) {
-				if (this.nodeState.log.get(prevIndex - 1).index == prevIndex
-						&& this.nodeState.log.get(prevIndex - 1).term == prevTerm) {
-					consistency_check = true;
+			if (this.nodeState.getLog()!=null && this.nodeState.getLog().size() >= prevIndex) {
+				prevLogEntry = this.nodeState.getLog().get(prevIndex - 1);
+				if (prevLogEntry.getIndex() == prevIndex
+						&& prevLogEntry.getTerm() == prevTerm) {
+					lastCommitCheck = true;
 				}
 			}
 
 		}
-		if (!consistency_check) {
-			if_success = false;
+		if (!lastCommitCheck) {
+			
+			success = false; 
 
-			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
+			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
 			this.receivedRequest = true;
 			this.lock.unlock();
 
-			return append_entry_reply;
+			return appendEntriesReply;
+			
 		} else {
 
-			if_success = true;
-			ArrayList<LogEntry> leader_logs = req_args.entries;
+			success = true;
+			ArrayList<LogEntries> leaderLogs = appendEntriesArgs.entries;
 
-			if (leader_logs.size() == 0) {
-				for (int j = this.nodeState.log.size() - 1; j >= prevIndex; j--) {
-					this.nodeState.log.remove(j);
+			if (leaderLogs.size() == 0) {
+				for (int j = this.nodeState.getLog().size() - 1; j >= prevIndex; j--) {
+					this.nodeState.getLog().remove(j);
 				}
 			}
+			//TODO:Raghav to refactor
 
-			for (int i = 0; i < leader_logs.size(); i++) {
-				LogEntry entry = leader_logs.get(i);
-				if (this.nodeState.log.size() < entry.index) {
-					/* Append any new entries not already in the follwer's log */
-					this.nodeState.log.add(entry);
+			for (int i = 0; i < leaderLogs.size(); i++) {
+				LogEntries entry = leaderLogs.get(i);
+				if (this.nodeState.getLog().size() < entry.getIndex()) {
+					this.nodeState.getLog().add(entry);
 				} else {
-					LogEntry my_entry = this.nodeState.log.get(entry.index - 1);
-					if (my_entry.term == entry.term) {
-						/* Same Entry */
+					LogEntries my_entry = this.nodeState.getLog().get(entry.getIndex() - 1);
+					if (my_entry.getTerm() == entry.getTerm()) {
 						continue;
 					} else {
-						for (int j = this.nodeState.log.size() - 1; j >= entry.index - 1; j--) {
-							this.nodeState.log.remove(j);
+						for (int j = this.nodeState.getLog().size() - 1; j >= entry.getIndex() - 1; j--) {
+							this.nodeState.getLog().remove(j);
 						}
-						this.nodeState.log.add(entry);
+						this.nodeState.getLog().add(entry);
 					}
 				}
 
 			}
 
+			
+			//TODO:RAGHAV to refactor
 			/*
 			 * If leaderCommit > commitIndex, set commitIndex = min(leaderCommit, index of
 			 * last new entry)
 			 */
-			if (req_args.leaderCommit > this.nodeState.commitIndex) {
-				
-				if (this.nodeState.log.peekLast() != null) {
-					int last_index = this.nodeState.log.getLast().index;// leader_logs.size() == 0 ? 0 :
-																				// this.node_state.log.getLast().index;
-					int update_commitIndex = Math.min(req_args.leaderCommit, last_index);
-					for (int i = this.nodeState.commitIndex + 1; i <= update_commitIndex; i++) {
-						LogEntry entry = this.nodeState.log.get(i - 1);
-						ApplyMsg msg = new ApplyMsg(this.nodeId, entry.index, entry.command, false, null);
+			if (appendEntriesArgs.leaderCommit > this.nodeState.getCommitIndex()) {
+
+				if (this.nodeState.getLog()!=null && this.nodeState.getLog().peekLast() != null) {
+					int lastIndex = this.nodeState.getLog().getLast().getIndex();// leader_logs.size() == 0 ? 0 :
+																		// this.node_state.log.getLast().index;
+					int update_commitIndex = Math.min(appendEntriesArgs.leaderCommit, lastIndex);
+					for (int i = this.nodeState.getCommitIndex() + 1; i <= update_commitIndex; i++) {
+						LogEntries entry = this.nodeState.getLog().get(i - 1);
+						ApplyMsg msg = new ApplyMsg(this.nodeId, entry.getIndex(), entry.getCommand(), false, null);
 						try {
 							this.lib.applyChannel(msg);
 						} catch (RemoteException e) {
@@ -322,26 +316,39 @@ public class RaftNode implements MessageHandling, Runnable {
 
 							e.printStackTrace();
 						}
-						this.nodeState.commitIndex = i;
-						this.nodeState.lastApplied = i;
+						this.nodeState.setCommitIndex(i);
+						this.nodeState.setLastApplied(i);
 					}
 				}
 			}
-			append_entry_reply = new AppendEntriesReply(this.nodeState.currentTerm, if_success);
+			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
 			this.receivedRequest = true;
 
 			this.lock.unlock();
 
-//            System.out.println(System.currentTimeMillis()+" Node "+this.id+" Returned Append RPC From Node "+req_args.leaderId+" "+req_args.prevLogIndex + " " + req_args.prevLogTerm+" "+ req_args.entries.size()+" "+req_args.leaderCommit);
 
-			return append_entry_reply;
+			return appendEntriesReply;
 		}
 	}
 
-	public ArrayList<LogEntry> retrieveLogs(List<LogEntry> serverEntries, int index) {
+	public void checkMessageTerm(AppendEntriesArgs appendEntriesArgs) {
+		// if RPC request or response contains term 
+		// term T > currentTerm  : set currentTerm = T
+		// convert to FOLLOWER
+		
+		if (appendEntriesArgs.getTerm() > this.nodeState.getCurrentTerm()
+				|| this.nodeState.getNodeState() == State.States.CANDIDATE) {
+			this.nodeState.setCurrentTerm(appendEntriesArgs.getTerm());
+			this.nodeState.setNodeState(State.States.FOLLOWER);
+			this.nodeState.setVotedFor(null); 
+			this.numOfVotes = 0;
+		}
+	}
 
-		ArrayList<LogEntry> resultLogs = new ArrayList<LogEntry>();
+	public ArrayList<LogEntries> retrieveLogs(List<LogEntries> serverEntries, int index) {
+
+		ArrayList<LogEntries> resultLogs = new ArrayList<LogEntries>();
 
 		int logLength = serverEntries.size();
 		if (logLength < index)
@@ -356,47 +363,45 @@ public class RaftNode implements MessageHandling, Runnable {
 	public void run() {
 
 		while (true) {
-			//if (nodeState != null) {
-				if (nodeState.getNodeState() == State.States.LEADER) {
+			if (nodeState!=null && nodeState.getNodeState() == State.States.LEADER) {
 
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				this.lock.lock();
+				sendHeartbeats();
+				this.lock.unlock();
+
+			} else {
+
+				timeout = random.nextInt(TIMEOUT_LOW) + (TIMEOUT_HIGH - TIMEOUT_LOW);
+
+				synchronized (this.nodeState) {
 					try {
-						Thread.sleep(100);
+						this.nodeState.wait(timeout);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
+				}
 
+				if (nodeState.getNodeState() != State.States.LEADER) {
+
+					if (receivedRequest) {
+						receivedRequest = false;
+						continue;
+					}
 					this.lock.lock();
-					sendHeartbeats();
+					this.nodeState.setNodeState(State.States.CANDIDATE);
+					startElection();
 					this.lock.unlock();
 
-				} else {
-
-					timeout = random.nextInt(450) + (900 - 450);
-
-					synchronized (this.nodeState) {
-						try {
-							this.nodeState.wait(timeout);
-						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-					}
-
-					if (nodeState.getNodeState() != State.States.LEADER) {
-
-						if (receivedRequest) {
-							receivedRequest = false;
-							continue;
-						}
-						this.lock.lock();
-						this.nodeState.setNodeState(State.States.CANDIDATE);
-						startElection();
-						this.lock.unlock();
-
-					}
 				}
-			//}
+			}
 		}
 
 	}
@@ -408,23 +413,23 @@ public class RaftNode implements MessageHandling, Runnable {
 		} else {
 			int threadNum = 0;
 
-			for (threadNum = 0; threadNum < this.numPeers; threadNum++) {
-				if(threadNum == this.nodeId) continue;
+			for (; threadNum < this.numPeers; threadNum++) {
+				if (threadNum == this.nodeId)
+					continue;
 				int nextIndex = this.nodeState.nextIndex[threadNum];
-				ArrayList<LogEntry> logEntries = this.retrieveLogs(nodeState.log, nextIndex);
+				ArrayList<LogEntries> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex);
 
 				int prevIndex = nextIndex - 1;
 				int prevTerm;
 				if (prevIndex != 0) {
-					prevTerm = this.nodeState.log.get(prevIndex - 1).getTerm();
+					prevTerm = this.nodeState.getLog().get(prevIndex - 1).getTerm();
 				} else {
-					prevTerm = 0; 
+					prevTerm = 0;
 				}
-				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.currentTerm, this.nodeId, prevIndex,
-						prevTerm, logEntries, this.nodeState.commitIndex);
+				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex, prevTerm,
+						logEntries, this.nodeState.getCommitIndex());
 
 				AppendEntriesThread thread = new AppendEntriesThread(this, this.nodeId, threadNum, entries);
-				// threadNum++;
 				thread.start();
 
 			}
@@ -433,33 +438,29 @@ public class RaftNode implements MessageHandling, Runnable {
 
 	public void startElection() {
 
-		this.nodeState.currentTerm++;
-		int lastIndex, lastTerm;
-		int threadNumber;
+		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm()+1);
+		int lastIndex = 0;
+		int lastTerm = 0;
+		int threadNumber = 0;
 
-		nodeState.votedFor = (this.nodeId);
+		nodeState.setVotedFor(this.nodeId);
 		numOfVotes = 0;
 		numOfVotes++;
-		
-		// reset_election_timer();
-		timeout = random.nextInt(450) + (900 - 450);
-		
-		LogEntry logEntry = this.nodeState.log.peekLast();
-		if (logEntry != null) {
-			lastIndex = logEntry.getIndex();
-			lastTerm = logEntry.getTerm();
-		} else {
-			lastIndex = 0;
-			lastTerm = 0;
-		}
-		for (threadNumber = 0; threadNumber < numPeers; threadNumber++) {
-			if(threadNumber == this.nodeId) 
+
+		timeout = random.nextInt(TIMEOUT_LOW) + (TIMEOUT_HIGH - TIMEOUT_LOW);
+
+		LogEntries logEntries = this.nodeState.getLog().peekLast();
+		if (logEntries != null) {
+			lastIndex = logEntries.getIndex();
+			lastTerm = logEntries.getTerm();
+		} 
+		for ( ; threadNumber < numPeers; threadNumber++) {
+			if (threadNumber == this.nodeId)
 				continue;
 
-			RequestVoteArgs args = new RequestVoteArgs(nodeState.currentTerm, nodeId, lastIndex, lastTerm);
+			RequestVoteArgs args = new RequestVoteArgs(nodeState.getCurrentTerm(), nodeId, lastIndex, lastTerm);
 
 			ElectionThread electionThread = new ElectionThread(this, this.nodeId, threadNumber, args);
-			// threadNumber++;
 
 			electionThread.start();
 		}

@@ -14,7 +14,7 @@ public class AppendEntriesArgs implements Serializable{
 	private int leaderId; 
 	private int prevLogIndex;
 	private int prevLogTerm; 
-	public ArrayList<LogEntry> entries; 
+	public ArrayList<LogEntries> entries; 
 	public int leaderCommit;
 	
 	/**
@@ -26,7 +26,7 @@ public class AppendEntriesArgs implements Serializable{
 	 * @param leaderCommit
 	 */
 	public AppendEntriesArgs(int term, int leaderId, int prevLogIndex, 
-			int prevLogTerm, ArrayList<LogEntry> logEntries, int leaderCommit) {
+			int prevLogTerm, ArrayList<LogEntries> logEntries, int leaderCommit) {
 		super();
 		this.term = term;
 		this.leaderId = leaderId;
@@ -59,10 +59,10 @@ public class AppendEntriesArgs implements Serializable{
 	public void setPrevLogTerm(int prevLogTerm) {
 		this.prevLogTerm = prevLogTerm;
 	}
-	public ArrayList<LogEntry> getEntries() {
+	public ArrayList<LogEntries> getEntries() {
 		return entries;
 	}
-	public void setEntries(ArrayList<LogEntry> entries) {
+	public void setEntries(ArrayList<LogEntries> entries) {
 		this.entries = entries;
 	}
 	public int getLeaderCommit() {

@@ -9,15 +9,15 @@ import java.io.Serializable;
  * A class that holds the log entry information
  *
  */
-public class LogEntry implements Serializable{
+public class LogEntries implements Serializable{
 	
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	public int term; 
-	public int index; 
-	public int command;
+	private int term; 
+	private int index; 
+	private int command;
 
 	public int getTerm() {
 		return term;
@@ -50,7 +50,7 @@ public class LogEntry implements Serializable{
 	 * @param index - position of the command in the log 
 	 * @param command - given to the cluster leader to commit
 	 */
-	public LogEntry(int command, int index, int term) {
+	public LogEntries(int command, int index, int term) {
 		//super();
 		this.term = term;
 		this.index = index;
