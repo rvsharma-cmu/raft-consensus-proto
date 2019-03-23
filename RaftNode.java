@@ -88,7 +88,7 @@ public class RaftNode implements MessageHandling, Runnable {
 			this.nodeState.matchIndex[this.nodeId] = lastLogIndex;
 
 			// send heartBeat
-			sendHeartbeats();
+			heartbeatRPC();
 
 			reply = new StartReply(lastLogIndex, this.nodeState.getCurrentTerm(), true);
 
@@ -106,26 +106,6 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		return reply;
 
-	}
-
-	/**
-	 * Function that returns the last log entry in the leader logs
-	 * 
-	 * @param lastEntry
-	 * @param logs
-	 * @return
-	 */
-	public int getLastIndex(LinkedList<LogEntries> logs) {
-
-		LogEntries lastEntry = null;
-
-		if (logs != null)
-			lastEntry = logs.peekLast();
-
-		int prevLastIndex = 0;
-		if (lastEntry != null)
-			prevLastIndex = lastEntry.getIndex();
-		return prevLastIndex;
 	}
 
 	@Override
@@ -189,13 +169,16 @@ public class RaftNode implements MessageHandling, Runnable {
 		return this.nodeId;
 	}
 
+	/**
+	 * method to handle requestVote messages from nodes
+	 * @param requestVoteArgs
+	 * @return
+	 */
 	public RequestVoteReply requestVoteRPC(RequestVoteArgs requestVoteArgs) {
 
 		boolean vote = false;
 		RequestVoteReply requestVoteReply = null;
 		this.lock.lock();
-		
-		
 
 		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
 			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
@@ -205,7 +188,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		
 		// grant vote if the requesting candidate has more updated term 
 		//TODO check the error here when indexes do not match 
-		if (this.nodeState != null && (requestVoteArgs.terms == this.nodeState.getCurrentTerm())&&
+		if (this.nodeState != null && 
 				(this.nodeState.getVotedFor() == null || 
 				this.nodeState.getVotedFor() == requestVoteArgs.candidateId)) {
 
@@ -219,13 +202,19 @@ public class RaftNode implements MessageHandling, Runnable {
 				lastTerms = logEntries.getTerm();
 			}
 
-			// or whichever is the longer length entry 
-			if (lastTerms <= requestVoteArgs.lastLogTerm || 
-					lastIndex <= requestVoteArgs.lastLogIndex) {
-				
-				vote = true;
-				this.nodeState.setVotedFor(requestVoteArgs.candidateId);
-				
+			if (lastTerms != requestVoteArgs.lastLogTerm) {
+				if (lastTerms <= requestVoteArgs.lastLogTerm) {
+					/* candidate’s log is at least as up-to-date as receiver’s log, grant vote */
+					vote = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
+				}
+			} else {
+				// or if it has the longer entry 
+
+				if (lastIndex <= requestVoteArgs.lastLogIndex) {
+					vote = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
+				}
 			}
 
 
@@ -309,23 +298,15 @@ public class RaftNode implements MessageHandling, Runnable {
 
 	@Override
 	public void run() {
+		
+		// Listening socket for followers
 
 		while (true) {
-			if (nodeState != null && nodeState.getNodeState() == State.States.LEADER) {
-
-				try {
-					Thread.sleep(100);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				this.lock.lock();
-				sendHeartbeats();
-				this.lock.unlock();
-
-			} else {
-
+			
+			// wait for heartbeat to be received from the designated leader 
+			// 
+			if (nodeState != null && nodeState.getNodeState() != State.States.LEADER) {
+				
 				timeout = random.nextInt(TIMEOUT_LOW) + (TIMEOUT_HIGH - TIMEOUT_LOW);
 
 				synchronized (this.nodeState) {
@@ -340,6 +321,10 @@ public class RaftNode implements MessageHandling, Runnable {
 				if (nodeState.getNodeState() != State.States.LEADER) {
 
 					if (receivedRequest) {
+						
+						// if follower gets request from the leader 
+						// reset the state and continue listening 
+						
 						receivedRequest = false;
 						continue;
 					}
@@ -349,12 +334,28 @@ public class RaftNode implements MessageHandling, Runnable {
 					this.lock.unlock();
 
 				}
+			
+
+			} else {
+				try {
+					Thread.sleep(100);
+					
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+
+				this.lock.lock();
+				
+				heartbeatRPC();
+				
+				this.lock.unlock();
 			}
 		}
 
 	}
 
-	public void sendHeartbeats() {
+	public void heartbeatRPC() {
 
 		if (this.nodeState.getNodeState() != State.States.LEADER) {
 			return;
@@ -412,6 +413,26 @@ public class RaftNode implements MessageHandling, Runnable {
 	/*
 	 * Helper functions
 	 */
+	
+	/**
+	 * Function that returns the last log entry in the leader logs
+	 * 
+	 * @param lastEntry
+	 * @param logs
+	 * @return
+	 */
+	public int getLastIndex(LinkedList<LogEntries> logs) {
+
+		LogEntries lastEntry = null;
+
+		if (logs != null)
+			lastEntry = logs.peekLast();
+
+		int prevLastIndex = 0;
+		if (lastEntry != null)
+			prevLastIndex = lastEntry.getIndex();
+		return prevLastIndex;
+	}
 
 	/**
 	 * Set this node as a Follower and reset its vote and votedFor states

@@ -77,7 +77,7 @@ public class ElectionThread extends ThreadUtility {
 						{
 							node.nodeState.nextIndex[i] = lastIndex+1;
 						}
-						node.sendHeartbeats();
+						node.heartbeatRPC();
 						node.nodeState.notify();
 						
 						
