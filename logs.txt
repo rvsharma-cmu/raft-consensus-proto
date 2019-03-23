@@ -1,0 +1,894 @@
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 0
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 1
+disconnect this 2
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 3
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 0
+Start to checkone leader
+5
+disconnect this 2
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 1
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 0
+disconnect this 1
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 1
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Start to checkone leader
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 2
+Start to checkone leader
+5
+disconnect this 4
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+disconnect this 0
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+  ... Passed
+
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 0
+Start to checkone leader
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 1
+disconnect this 2
+ reconnected 1 leader
+
+Start to checkone leader
+3
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 4
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 0
+Start to checkone leader
+5
+disconnect this 4
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+disconnect this 0
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 2
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 1
+disconnect this 2
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 4
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 4
+disconnect this 0
+Start to checkone leader
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 2
+Start to checkone leader
+5
+disconnect this 0
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+disconnect this 0
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+  ... Passed
+
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 1
+Start to checkone leader
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 0
+disconnect this 1
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 3
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 1
+disconnect this 2
+disconnect this 3
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 0
+Start to checkone leader
+5
+disconnect this 1
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Start to checkone leader
+5
+disconnect this 1
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+  ... Passed
+
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 2
+Start to checkone leader
+3
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 0
+disconnect this 1
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 2
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 3
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 0
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 1
+disconnect this 2
+ reconnected 1 leader
+
+Start to checkone leader
+3
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 1
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 3
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+disconnect this 0
+Start to checkone leader
+5
+disconnect this 2
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 2
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 1
+disconnect this 2
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 1
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 1
+disconnect this 2
+disconnect this 3
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 1
+Start to checkone leader
+5
+disconnect this 4
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+Start to checkone leader
+5
+disconnect this 0
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 0
+Start to checkone leader
+3
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 2
+disconnect this 0
+ reconnected 1 leader
+
+Start to checkone leader
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 4
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 3
+disconnect this 4
+disconnect this 0
+Start to checkone leader
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 2
+Start to checkone leader
+5
+disconnect this 3
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+
+Testing initial election ...
+Start to checkone leader
+3
+ .... Passed ! 
+Testing election after network failure...\n
+Basic one leader ...\n
+Start to checkone leader
+3
+1 disconnected leader
+
+disconnect this 1
+Start to checkone leader
+3
+old connected 1 leader
+
+Start to checkone leader
+3
+2 disconnected no leader
+
+disconnect this 0
+disconnect this 1
+ reconnected 1 leader
+
+Start to checkone leader
+3
+3
+1 reconnected 1 leader
+
+Start to checkone leader
+3
+  ... Passed
+
+Testing basic agreement...\n
+  ... Passed
+
+Testing agreement despite follower disconnection\n
+Checking one leader
+
+Start to checkone leader
+5
+disconnect this 2
+Checking agreement with one disconnected server
+Checking with reconnected server
+  ... Passed
+
+Testing no agreement if too many followers disconnect\n
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+Start to checkone leader
+5
+5
+  ... Passed
+
+Testing rejoin of partitioned leader\n
+Start to checkone leader
+5
+disconnect this 3
+Start to checkone leader
+5
+disconnect this 2
+  ... Passed
+
+Testing leader backs up quickly over incorrect follower logs ...
+
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+Start to checkone leader
+5
+disconnect this 4
+disconnect this 0
+disconnect this 1
+disconnect this 2
+disconnect this 3
+disconnect this 4
+Testing RPC counts are not too high\n
+Start to checkone leader
+3
+Start to checkone leader
+3
+  ... Passed
+

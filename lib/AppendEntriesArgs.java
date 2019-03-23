@@ -2,6 +2,7 @@ package lib;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 public class AppendEntriesArgs implements Serializable{
 	
@@ -13,7 +14,7 @@ public class AppendEntriesArgs implements Serializable{
 	private int leaderId; 
 	private int prevLogIndex;
 	private int prevLogTerm; 
-	public ArrayList<LogEntries> entries; 
+	public LinkedList<LogEntries> entries; 
 	public int leaderCommit;
 	
 	/**
@@ -25,7 +26,7 @@ public class AppendEntriesArgs implements Serializable{
 	 * @param leaderCommit
 	 */
 	public AppendEntriesArgs(int term, int leaderId, int prevLogIndex, 
-			int prevLogTerm, ArrayList<LogEntries> logEntries, int leaderCommit) {
+			int prevLogTerm, LinkedList<LogEntries> logEntries, int leaderCommit) {
 		super();
 		this.term = term;
 		this.leaderId = leaderId;
@@ -58,10 +59,10 @@ public class AppendEntriesArgs implements Serializable{
 	public void setPrevLogTerm(int prevLogTerm) {
 		this.prevLogTerm = prevLogTerm;
 	}
-	public ArrayList<LogEntries> getEntries() {
+	public LinkedList<LogEntries> getEntries() {
 		return entries;
 	}
-	public void setEntries(ArrayList<LogEntries> entries) {
+	public void setEntries(LinkedList<LogEntries> entries) {
 		this.entries = entries;
 	}
 	public int getLeaderCommit() {

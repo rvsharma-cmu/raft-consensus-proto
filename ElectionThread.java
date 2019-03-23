@@ -7,9 +7,7 @@ import lib.Message;
 import lib.MessageType;
 import lib.RaftUtilities;
 import lib.RequestVoteArgs;
-import lib.RequestVoteReply;
-import lib.State;
-import lib.State.States; 
+import lib.RequestVoteReply; 
 
 public class ElectionThread extends ThreadUtility {
 	
