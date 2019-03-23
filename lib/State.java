@@ -12,7 +12,7 @@ public class State {
     private States nodeState = States.FOLLOWER;
     private int currentTerm;
     private Integer votedFor = null; // Candidate ID that received vote in $Current Term$, (or null if none<hasn't voted yet>)
-    private LinkedList<LogEntries> log; //
+    private ArrayList<LogEntries> log; //
 
     /* Volatile state on all Servers */
     private int commitIndex; // index of highest log entry known to be committed (initialized to 0, increases monotonically)
@@ -35,18 +35,24 @@ public class State {
 	}
 	
 	public LogEntries getLastEntry() {
-		return this.log.peekLast();
+		if(this.log.isEmpty())
+			return null;
+		else {
+			int last = this.log.size() - 1;
+			LogEntries lastEntry = this.log.get(last);
+			return lastEntry;
+		}
 	}
 
 	public void setVotedFor(Integer votedFor) {
 		this.votedFor = votedFor;
 	}
 
-	public LinkedList<LogEntries> getLog() {
+	public ArrayList<LogEntries> getLog() {
 		return log;
 	}
 
-	public void setLog(LinkedList<LogEntries> log) {
+	public void setLog(ArrayList<LogEntries> log) {
 		this.log = log;
 	}
 
@@ -79,7 +85,7 @@ public class State {
 	
 	public State(int num_peers){
         this.currentTerm = 0;
-        this.log = new LinkedList<LogEntries>();
+        this.log = new ArrayList<LogEntries>();
         this.commitIndex = 0;
         this.lastApplied = 0;
         this.nextIndex = new int[num_peers];
@@ -103,10 +109,10 @@ public class State {
 	 * @param index         - index from which to retrieve the entry logs
 	 * @return
 	 */
-	public LinkedList<LogEntries> retrieveLogs(int index) {
+	public ArrayList<LogEntries> retrieveLogs(int index) {
 
 		List<LogEntries> entries = this.getLog();
-		LinkedList<LogEntries> resultLogs = new LinkedList<LogEntries>();
+		ArrayList<LogEntries> resultLogs = new ArrayList<LogEntries>();
 
 		if (entries.size() > index)
 			for (int i = index; i < entries.size(); i++) {

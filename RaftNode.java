@@ -420,7 +420,7 @@ public class RaftNode implements MessageHandling, Runnable {
 					int prevIndex = this.nodeState.nextIndex[serverNum] - 1;
 					
 					// log entries for followers to compare 
-					LinkedList<LogEntries> logEntries = this.nodeState.retrieveLogs(prevIndex);
+					ArrayList<LogEntries> logEntries = this.nodeState.retrieveLogs(prevIndex);
 	
 					// and previous terms 
 					int prevTerm = 0;
@@ -482,7 +482,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		int nodeCommitIndex = this.nodeState.getCommitIndex();
 
-		LinkedList<LogEntries> getNodeLogs = this.nodeState.getLog();
+		ArrayList<LogEntries> getNodeLogs = this.nodeState.getLog();
 		LogEntries lastEntry = this.nodeState.getLastEntry();
 
 		// If leaderCommit > commitIndex, set commitIndex =
@@ -492,7 +492,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			if (getNodeLogs != null && lastEntry != null) {
 
-				int commitIndex = Math.min(appendEntriesArgs.leaderCommit, getNodeLogs.getLast().getIndex());
+				int commitIndex = Math.min(appendEntriesArgs.leaderCommit, this.nodeState.getLastEntry().getIndex());
 
 				while (nodeCommitIndex + 1 <= commitIndex) {
 					LogEntries entry = getNodeLogs.get(nodeCommitIndex);
@@ -528,7 +528,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		for (int i = 0; i < appendEntriesArgs.entries.size(); i++) {
 
-			LinkedList<LogEntries> logs = this.nodeState.getLog();
+			ArrayList<LogEntries> logs = this.nodeState.getLog();
 			
 			LogEntries entry = appendEntriesArgs.entries.get(i);
 			
@@ -593,24 +593,5 @@ public class RaftNode implements MessageHandling, Runnable {
 	public void unlockCriticalSection() {
 		this.receivedRequest = true;
 		this.lock.unlock();
-	}
-
-	/**
-	 * Retrieve entry logs from the given index
-	 * 
-	 * @param serverEntries -
-	 * @param index         - index from which to retrieve the entry logs
-	 * @return
-	 */
-	public LinkedList<LogEntries> retrieveLogs(List<LogEntries> serverEntries, int index) {
-
-		LinkedList<LogEntries> resultLogs = new LinkedList<LogEntries>();
-
-		if (serverEntries.size() > index)
-			for (int i = index; i < serverEntries.size(); i++) {
-				resultLogs.add(serverEntries.get(i));
-			}
-
-		return resultLogs;
 	}
 }
