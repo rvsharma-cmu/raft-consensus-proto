@@ -1,6 +1,8 @@
 package lib;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * Persistent & Volatile state on servers
@@ -30,6 +32,10 @@ public class State {
 
 	public Integer getVotedFor() {
 		return votedFor;
+	}
+	
+	public LogEntries getLastEntry() {
+		return this.log.peekLast();
 	}
 
 	public void setVotedFor(Integer votedFor) {
@@ -89,4 +95,24 @@ public class State {
 
         this.nodeState = new_role;
     }
+    
+    /**
+	 * Retrieve entry logs from the given index
+	 * 
+	 * @param serverEntries -
+	 * @param index         - index from which to retrieve the entry logs
+	 * @return
+	 */
+	public LinkedList<LogEntries> retrieveLogs(int index) {
+
+		List<LogEntries> entries = this.getLog();
+		LinkedList<LogEntries> resultLogs = new LinkedList<LogEntries>();
+
+		if (entries.size() > index)
+			for (int i = index; i < entries.size(); i++) {
+				resultLogs.add(entries.get(i));
+			}
+
+		return resultLogs;
+	}
 }

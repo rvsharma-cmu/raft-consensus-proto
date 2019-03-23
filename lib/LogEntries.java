@@ -4,7 +4,7 @@ import java.io.Serializable;
 
 /**
  * Class 
- * @author abubber and rvsharma
+ * 
  * 
  * A class that holds the log entry information
  *

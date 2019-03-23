@@ -9,13 +9,13 @@ import lib.RaftUtilities;
 import lib.RequestVoteArgs;
 import lib.RequestVoteReply; 
 
-public class ElectionThread extends ThreadUtility {
+public class ElectionHandler extends ThreadUtility {
 	
 	private RequestVoteReply requestVoteReply;
 
 
 	
-	public ElectionThread(RaftNode node, int start, int end, RequestVoteArgs args) {
+	public ElectionHandler(RaftNode node, int start, int end, RequestVoteArgs args) {
 		
 		super(node, start, end);
 		this.requestVoteArgs = args; 
@@ -67,11 +67,11 @@ public class ElectionThread extends ThreadUtility {
 					{
 						node.nodeState.setNodeState(lib.State.States.LEADER);
 						
-						LogEntries logEntries = node.nodeState.getLog().peekLast();
+						LogEntries lastEntry = node.nodeState.getLastEntry();
 						int lastIndex = 0;
-						if(logEntries!=null)
+						if(lastEntry!=null)
 						{
-							lastIndex = logEntries.getIndex();
+							lastIndex = lastEntry.getIndex();
 						}
 						for(int i=0;i<node.numPeers;i++)
 						{

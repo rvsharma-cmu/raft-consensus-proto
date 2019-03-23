@@ -71,7 +71,7 @@ public class HeartbeatHandler extends ThreadUtility {
 		
 		LogEntries lastLogEntry = null;
 		if(nodeState.getLog() != null)
-			lastLogEntry = nodeState.getLog().peekLast();
+			lastLogEntry = nodeState.getLastEntry();
 		int lastIndexLogged = 0;
 		if (lastLogEntry != null) {
 			lastIndexLogged = lastLogEntry.getIndex();

@@ -1,4 +1,5 @@
 import java.rmi.RemoteException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
@@ -79,12 +80,12 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			// as a leader
 
-			LinkedList<LogEntries> logs = this.nodeState.getLog();
+			int lastLogIndex = getLastIndex() + 1;
 
-			int lastLogIndex = getLastIndex(logs) + 1;
-
+			
 			// append the received command to leader
-			logs.add(new LogEntries(command, lastLogIndex, this.nodeState.getCurrentTerm()));
+			this.nodeState.getLog().add(new LogEntries(command, 
+					lastLogIndex, this.nodeState.getCurrentTerm()));
 			this.nodeState.matchIndex[this.nodeId] = lastLogIndex;
 
 			// send heartBeat
@@ -192,14 +193,14 @@ public class RaftNode implements MessageHandling, Runnable {
 				(this.nodeState.getVotedFor() == null || 
 				this.nodeState.getVotedFor() == requestVoteArgs.candidateId)) {
 
-			LogEntries logEntries = this.nodeState.getLog().peekLast();
+			LogEntries lastEntry = this.nodeState.getLastEntry();
 			
 			int lastIndex = 0;
 			int lastTerms = 0;
 			
-			if (logEntries != null) {
-				lastIndex = logEntries.getIndex();
-				lastTerms = logEntries.getTerm();
+			if (lastEntry != null) {
+				lastIndex = lastEntry.getIndex();
+				lastTerms = lastEntry.getTerm();
 			}
 
 			if (lastTerms != requestVoteArgs.lastLogTerm) {
@@ -299,13 +300,14 @@ public class RaftNode implements MessageHandling, Runnable {
 	@Override
 	public void run() {
 		
-		// Listening socket for followers
+		// Listening socket for followers and leader
 
 		while (true) {
 			
 			// wait for heartbeat to be received from the designated leader 
-			// 
 			if (nodeState != null && nodeState.getNodeState() != State.States.LEADER) {
+				
+				// generate random timeout
 				
 				timeout = random.nextInt(TIMEOUT_LOW) + (TIMEOUT_HIGH - TIMEOUT_LOW);
 
@@ -313,39 +315,39 @@ public class RaftNode implements MessageHandling, Runnable {
 					try {
 						this.nodeState.wait(timeout);
 					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
 
 				if (nodeState.getNodeState() != State.States.LEADER) {
 
-					if (receivedRequest) {
+					if (!receivedRequest) {
 						
-						// if follower gets request from the leader 
-						// reset the state and continue listening 
+						// if follower has not received heartBeat from the leader 
+						// convert to candidate and start the election
+						this.nodeState.setNodeState(State.States.CANDIDATE);
+						startElection();
 						
-						receivedRequest = false;
-						continue;
+					} else {
+						receivedRequest = false; 
 					}
-					this.lock.lock();
-					this.nodeState.setNodeState(State.States.CANDIDATE);
-					startElection();
-					this.lock.unlock();
-
+					
 				}
 			
 
 			} else {
 				try {
+					// if the node is a leader 
+					// sleep for 100 ms
 					Thread.sleep(100);
 					
 				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 
 				this.lock.lock();
+				
+				// generate heartbeat RPC
 				
 				heartbeatRPC();
 				
@@ -354,60 +356,90 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 
 	}
+	
+	/**
+	 * start an election for the server 
+	 */
+	public void startElection() {
 
-	public void heartbeatRPC() {
+		int serverNum = 0; 
 
-		if (this.nodeState.getNodeState() != State.States.LEADER) {
-			return;
-		} else {
-			for (int threadNum = 0; threadNum < this.numPeers; threadNum++) {
-				if (threadNum == this.nodeId)
-					continue;
-				int nextIndex = this.nodeState.nextIndex[threadNum];
-				LinkedList<LogEntries> logEntries = this.retrieveLogs(nodeState.getLog(), nextIndex - 1);
+		//before starting an election the candidate increments the current term 
+		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm() + 1);
+		// vote for itself
+		this.nodeState.setVotedFor(this.nodeId);
+		this.numOfVotes = 1;
 
-				int prevIndex = nextIndex - 1;
-				int prevTerm = 0;
-				if (prevIndex != 0) {
-					prevTerm = this.nodeState.getLog().get(prevIndex - 1).getTerm();
-				}
-				AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), this.nodeId, prevIndex,
-						prevTerm, logEntries, this.nodeState.getCommitIndex());
 
-				HeartbeatHandler thread = new HeartbeatHandler(this, this.nodeId, threadNum, entries);
-				thread.start();
-
+		// get the last index and term from its logs 
+		int lastIndex = 0;
+		int lastTerm = 0;
+		LogEntries lastEntry = this.nodeState.getLastEntry();
+		if (lastEntry != null) {
+			lastIndex = lastEntry.getIndex();
+			lastTerm = lastEntry.getTerm();
+		}
+		
+		// and send requestVote to each thread 
+		while (serverNum < numPeers) {
+			
+			// except itself 
+			if (serverNum != this.nodeId) {
+				
+				// generate request Vote arguments 
+				RequestVoteArgs args = new RequestVoteArgs(nodeState.getCurrentTerm(), 
+						nodeId, lastIndex, lastTerm);
+				
+				// create a new thread for handling election 
+				// instead of waiting for replies 
+				ElectionHandler electionHandler = new ElectionHandler(this, 
+						this.nodeId, serverNum, args);
+	
+				electionHandler.start();
 			}
+			serverNum++;
 		}
 	}
 
-	public void startElection() {
+	/**
+	 * method for generating hearbeat RPC messages to all the follower nodes
+	 * 
+	 */
+	public void heartbeatRPC() {
 
-		int lastIndex = 0;
-		int lastTerm = 0;
-
-		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm() + 1);
-		this.nodeState.setVotedFor(this.nodeId);
-		this.numOfVotes = 0;
-		this.numOfVotes++;
-
-		timeout = random.nextInt(TIMEOUT_LOW) + (TIMEOUT_HIGH - TIMEOUT_LOW);
-
-		LogEntries logEntries = this.nodeState.getLog().peekLast();
-		if (logEntries != null) {
-			lastIndex = logEntries.getIndex();
-			lastTerm = logEntries.getTerm();
-		}
-		for (int threadNumber = 0; threadNumber < numPeers; threadNumber++) {
-			if (threadNumber == this.nodeId)
-				continue;
-
-			RequestVoteArgs args = new RequestVoteArgs(nodeState.getCurrentTerm(), nodeId, lastIndex, lastTerm);
-
-			ElectionThread electionThread = new ElectionThread(this, this.nodeId, threadNumber, args);
-
-			electionThread.start();
-		}
+		int serverNum = 0; 
+		// generate heart beat RPC message only if it is a leader 
+		if (this.nodeState.getNodeState() == State.States.LEADER) {
+			
+			// send heart beat message to all the peers
+			while (serverNum < this.numPeers) {
+				
+				if (serverNum != this.nodeId) {
+					
+					// heartbeat message has previous index
+					int prevIndex = this.nodeState.nextIndex[serverNum] - 1;
+					
+					// log entries for followers to compare 
+					LinkedList<LogEntries> logEntries = this.nodeState.retrieveLogs(prevIndex);
+	
+					// and previous terms 
+					int prevTerm = 0;
+					if (prevIndex != 0) {
+						prevTerm = this.nodeState.getLog().get(prevIndex - 1).getTerm();
+					}
+					
+					// generate leader entries to send as a message
+					AppendEntriesArgs entries = new AppendEntriesArgs(nodeState.getCurrentTerm(), 
+							this.nodeId, prevIndex,
+							prevTerm, logEntries, this.nodeState.getCommitIndex());
+	
+					HeartbeatHandler thread = new HeartbeatHandler(this, this.nodeId, serverNum, entries);
+					thread.start();
+					
+				}
+				serverNum++;
+			}
+		} 
 	}
 
 	/*
@@ -421,12 +453,10 @@ public class RaftNode implements MessageHandling, Runnable {
 	 * @param logs
 	 * @return
 	 */
-	public int getLastIndex(LinkedList<LogEntries> logs) {
+	public int getLastIndex() {
 
-		LogEntries lastEntry = null;
-
-		if (logs != null)
-			lastEntry = logs.peekLast();
+		LogEntries lastEntry = null;	
+		lastEntry = this.nodeState.getLastEntry();
 
 		int prevLastIndex = 0;
 		if (lastEntry != null)
@@ -440,7 +470,6 @@ public class RaftNode implements MessageHandling, Runnable {
 	public void setFollower() {
 		this.nodeState.setNodeState(State.States.FOLLOWER);
 		this.nodeState.setVotedFor(null);
-		// this.numOfVotes = 0;
 	}
 
 	/**
@@ -454,13 +483,14 @@ public class RaftNode implements MessageHandling, Runnable {
 		int nodeCommitIndex = this.nodeState.getCommitIndex();
 
 		LinkedList<LogEntries> getNodeLogs = this.nodeState.getLog();
+		LogEntries lastEntry = this.nodeState.getLastEntry();
 
 		// If leaderCommit > commitIndex, set commitIndex =
 		// min(leaderCommit, index of last new entry)
 
 		if (appendEntriesArgs!=null && appendEntriesArgs.leaderCommit > nodeCommitIndex) {
 
-			if (getNodeLogs != null && getNodeLogs.peekLast() != null) {
+			if (getNodeLogs != null && lastEntry != null) {
 
 				int commitIndex = Math.min(appendEntriesArgs.leaderCommit, getNodeLogs.getLast().getIndex());
 
@@ -492,27 +522,35 @@ public class RaftNode implements MessageHandling, Runnable {
 	 * 
 	 * @param appendEntriesArgs
 	 * 
-	 * @param leaderLogs        logs which are passed from the leader to the
-	 *                          follower
+	 * 
 	 */
 	public void appendMissingLogs(AppendEntriesArgs appendEntriesArgs) {
 
-		LinkedList<LogEntries> leaderLogs = appendEntriesArgs.entries;
-		for (int i = 0; i < leaderLogs.size(); i++) {
-			LogEntries entry = leaderLogs.get(i);
+		for (int i = 0; i < appendEntriesArgs.entries.size(); i++) {
+
 			LinkedList<LogEntries> logs = this.nodeState.getLog();
-			if (logs.size() < entry.getIndex()) {
-				logs.add(entry);
-			} else {
-				LogEntries logEntry = logs.get(entry.getIndex() - 1);
-				if (logEntry.getTerm() == entry.getTerm()) {
-					continue;
-				} else {
-					for (int j = logs.size() - 1; j >= entry.getIndex() - 1; j--) {
+			
+			LogEntries entry = appendEntriesArgs.entries.get(i);
+			
+			int index = entry.getIndex();
+			
+			if (logs.size() >= index) {
+
+				LogEntries logEntry = logs.get(index - 1);
+			
+				if (logEntry.getTerm() != entry.getTerm()) {
+				
+					// conflicting entry 
+					// delete the conflicting entries 
+					for (int j = logs.size() - 1; j >=  index - 1; j--) {
 						logs.remove(j);
 					}
+				
 					logs.add(entry);
-				}
+				} 
+			} else {
+				
+				logs.add(entry);
 			}
 
 		}
