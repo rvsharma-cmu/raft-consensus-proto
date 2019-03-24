@@ -1,11 +1,8 @@
 
 import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 
-import raftCore.*;
 import lib.GetStateReply;
 import lib.LogEntries;
 import lib.Message;
@@ -21,6 +18,9 @@ public class RaftNode implements MessageHandling, Runnable {
 	private static final int TIMEOUT_LOW = 250;
 	private static final int TIMEOUT_HIGH = 500;
 
+	private static final int START_VOTE = 1;
+
+	
 	boolean receivedRequest;
 	public TransportLib lib;
 
@@ -40,6 +40,7 @@ public class RaftNode implements MessageHandling, Runnable {
 	public int majorityVotes;
 	public ReentrantLock lock;
 
+	public RaftNodeUtility raftNodeUtility;
 	private Thread thread;
 
 	public RaftNode(int port, int id_, int numPeers) {
@@ -56,6 +57,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		numOfVotes = 0;
 		lib = new TransportLib(this.port, this.nodeId, this);
+		raftNodeUtility = new RaftNodeUtility();
 		thread = new Thread(this);
 		thread.start();
 	}
@@ -76,10 +78,11 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			// as a leader
 
-			int lastLogIndex = RaftNodeUtility.getLastIndex(this) + 1;
+			int lastLogIndex = raftNodeUtility.getLastIndex(this) + 1;
 
 			// append the received command to leader
-			this.nodeState.getLog().add(new LogEntries(command, lastLogIndex, this.nodeState.getCurrentTerm()));
+			this.nodeState.getLog().add(new LogEntries(command, lastLogIndex, 
+					this.nodeState.getCurrentTerm()));
 			this.nodeState.matchIndex[this.nodeId] = lastLogIndex;
 
 			// send heartBeat
@@ -105,7 +108,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 	@Override
 	public GetStateReply getState() {
-
+		
 		boolean isLeader = false;
 		if (this.nodeState.getNodeState() == State.States.LEADER)
 			isLeader = true;
@@ -137,7 +140,6 @@ public class RaftNode implements MessageHandling, Runnable {
 		byte[] replyPayload = null;
 
 		if (type == MessageType.AppendEntriesArgs) {
-
 			AppendEntriesReply reply = appendEntryRPC((AppendEntriesArgs) requestArgs);
 			replyPayload = RaftUtilities.serialize(reply);
 			replyMessage = new Message(MessageType.AppendEntryReply, msgDstId, msgSrcId, replyPayload);
@@ -178,7 +180,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
 			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
-			RaftNodeUtility.setFollower(this);
+			raftNodeUtility.setFollower(this);
 
 		}
 
@@ -204,7 +206,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 		requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), vote);
 
-		RaftNodeUtility.unlockCriticalSection(this);
+		raftNodeUtility.unlockCriticalSection(this);
 		return requestVoteReply;
 	}
 
@@ -227,7 +229,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			RaftNodeUtility.unlockCriticalSection(this);
+			raftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 		}
@@ -235,14 +237,13 @@ public class RaftNode implements MessageHandling, Runnable {
 		// Reply false if log doesn’t contain an entry at prevLogIndex
 		// whose term matches prevLogTerm
 
-		appendEntriesArgs.checkMessageTerm(this);
+		raftNodeUtility.checkMessageTerm(this,appendEntriesArgs);
 
-		// TODO:Refactor this part
 		boolean lastCommitCheck = true;
 
 		if (appendEntriesArgs.getPrevLogIndex() != 0 && appendEntriesArgs.getPrevLogTerm() != 0) {
 
-			lastCommitCheck = appendEntriesArgs.checkConsistency(this);
+			lastCommitCheck = raftNodeUtility.checkConsistency(this,appendEntriesArgs);
 
 		}
 		if (lastCommitCheck) {
@@ -252,14 +253,14 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			success = true;
 
-			appendEntriesArgs.appendMissingLogs(this);
+			raftNodeUtility.appendMissingLogs(this,appendEntriesArgs);
 
-			appendEntriesArgs.checkLeaderIndex(this);
+			raftNodeUtility.checkLeaderIndex(this,appendEntriesArgs);
 
 			// send the reply
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			RaftNodeUtility.unlockCriticalSection(this);
+			raftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 
@@ -269,7 +270,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			RaftNodeUtility.unlockCriticalSection(this);
+			raftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 		}
@@ -345,7 +346,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		this.nodeState.setCurrentTerm(this.nodeState.getCurrentTerm() + 1);
 		// vote for itself
 		this.nodeState.setVotedFor(this.nodeId);
-		this.numOfVotes = 1;
+		this.numOfVotes = START_VOTE;
 
 		// get the last index and term from its logs
 		int lastIndex = 0;

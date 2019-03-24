@@ -16,3 +16,4 @@
 /AppendEntriesReply.class
 /RequestVoteArgs.class
 /RequestVoteReply.class
+/RaftNodeUtility.class

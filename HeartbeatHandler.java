@@ -7,6 +7,10 @@ import lib.Message;
 import lib.MessageType;
 import lib.RaftUtilities;
 
+/**
+ * @author abubber,rvsharma
+ *
+ */
 public class HeartbeatHandler extends ThreadUtility {
 
 	AppendEntriesArgs appendEntriesArgs;
@@ -21,8 +25,7 @@ public class HeartbeatHandler extends ThreadUtility {
 	public void run() {
 
 		byte[] serializeMessage = RaftUtilities.serialize(this.appendEntriesArgs);
-		this.requestMessage = new Message(MessageType.AppendEntriesArgs, this.sourceId, this.destId,
-				serializeMessage);
+		this.requestMessage = new Message(MessageType.AppendEntriesArgs, this.sourceId, this.destId, serializeMessage);
 
 		try {
 			replyMessage = this.node.lib.sendMessage(requestMessage);
@@ -33,7 +36,7 @@ public class HeartbeatHandler extends ThreadUtility {
 			return;
 		}
 		if (replyMessage == null) {
-			//do nothing
+			// do nothing
 		} else {
 			this.node.lock.lock();
 			AppendEntriesReply appendEntriesReply = (AppendEntriesReply) RaftUtilities
@@ -42,11 +45,11 @@ public class HeartbeatHandler extends ThreadUtility {
 				// this is not the right leader
 				node.nodeState.setCurrentTerm(appendEntriesReply.getTerm());
 				setFollower();
-				
+
 			}
 			if (!appendEntriesReply.isSuccess()) {
 				node.nodeState.nextIndex[destId] = node.nodeState.nextIndex[destId] - 1;
-				
+
 			} else {
 				if (appendEntriesArgs.entries.size() > 0) {
 					updateIndex();
@@ -59,22 +62,20 @@ public class HeartbeatHandler extends ThreadUtility {
 
 	}
 
-	/**
-	 * TODO:rename
-	 */
+	
 	public void updateIndex() {
 		int index = appendEntriesArgs.entries.size() - 1;
 		lib.State nodeState = this.node.nodeState;
 		nodeState.matchIndex[destId] = appendEntriesArgs.entries.get(index).getIndex();
 		nodeState.nextIndex[destId] = appendEntriesArgs.entries.get(index).getIndex() + 1;
-		
+
 		LogEntries lastLogEntry = null;
-		if(nodeState.getLog() != null)
+		if (nodeState.getLog() != null)
 			lastLogEntry = nodeState.getLastEntry();
 		int lastIndexLogged = 0;
 		if (lastLogEntry != null) {
 			lastIndexLogged = lastLogEntry.getIndex();
-		} 
+		}
 		for (int i = this.node.nodeState.getCommitIndex() + 1; i <= lastIndexLogged; i++) {
 
 			int count = 0;
@@ -98,8 +99,8 @@ public class HeartbeatHandler extends ThreadUtility {
 	 */
 	public void applyMessage(lib.State nodeState, int i) {
 		for (int k = nodeState.getCommitIndex() + 1; k <= i; k++) {
-			ApplyMsg applyMsg = new ApplyMsg(this.node.getId(), k, nodeState.getLog().get(k - 1).getCommand(),
-					false, null);
+			ApplyMsg applyMsg = new ApplyMsg(this.node.getId(), k, nodeState.getLog().get(k - 1).getCommand(), false,
+					null);
 			try {
 				this.node.lib.applyChannel(applyMsg);
 			} catch (RemoteException e) {
@@ -115,5 +116,4 @@ public class HeartbeatHandler extends ThreadUtility {
 		nodeState.setLastApplied(i);
 	}
 
-	
 }

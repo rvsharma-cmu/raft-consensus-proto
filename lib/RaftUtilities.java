@@ -37,6 +37,5 @@ public class RaftUtilities {
 		}
 		return object;
 	}
-	
-	
+
 }
