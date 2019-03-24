@@ -6,6 +6,10 @@ import lib.ApplyMsg;
 import lib.LogEntries;
 import lib.State;
 
+/**
+ * @author abubber,rvsharma
+ *
+ */
 public class AppendEntriesArgs implements Serializable {
 
 	/**
@@ -85,103 +89,5 @@ public class AppendEntriesArgs implements Serializable {
 	public void setLeaderCommit(int leaderCommit) {
 		this.leaderCommit = leaderCommit;
 	}
-
-//	public void checkMessageTerm(RaftNode raftNode) {
-//
-//		// if RPC request or response contains term
-//		// term T > currentTerm : set currentTerm = T
-//		// convert to FOLLOWER
-//
-//		if (getTerm() > raftNode.nodeState.getCurrentTerm()) {
-//			raftNode.nodeState.setCurrentTerm(getTerm());
-//			raftNode.nodeState.setNodeState(State.States.FOLLOWER);
-//		}
-//	}
-//
-//	
-//
-//	/**
-//	 * Append missing logs from the leader to follower
-//	 * 
-//	 * @param raftNode
-//	 * 
-//	 * 
-//	 */
-//	public void appendMissingLogs(RaftNode raftNode) {
-//
-//		for (int i = 0; i < entries.size(); i++) {
-//
-//			ArrayList<LogEntries> logs = raftNode.nodeState.getLog();
-//
-//			LogEntries entry = entries.get(i);
-//
-//			int index = entry.getIndex();
-//
-//			if (logs.size() >= index) {
-//
-//				LogEntries logEntry = logs.get(index - 1);
-//
-//				if (logEntry.getTerm() != entry.getTerm()) {
-//
-//					// conflicting entry
-//					// delete the conflicting entries
-//					for (int j = logs.size() - 1; j >= index - 1; j--) {
-//						logs.remove(j);
-//					}
-//
-//					logs.add(entry);
-//				}
-//			} else {
-//
-//				logs.add(entry);
-//			}
-//
-//		}
-//	}
-//
-//	/**
-//	 * Check the index of the leader If leaderCommit > commitIndex, set commitIndex
-//	 * = min(leaderCommit, index of last new entry)
-//	 *
-//	 * @param raftNode
-//	 */
-//	public void checkLeaderIndex(RaftNode raftNode) {
-//
-//		int nodeCommitIndex = raftNode.nodeState.getCommitIndex();
-//
-//		ArrayList<LogEntries> getNodeLogs = raftNode.nodeState.getLog();
-//		LogEntries lastEntry = raftNode.nodeState.getLastEntry();
-//
-//		// If leaderCommit > commitIndex, set commitIndex =
-//		// min(leaderCommit, index of last new entry)
-//
-//		if (this != null && leaderCommit > nodeCommitIndex) {
-//
-//			if (getNodeLogs != null && lastEntry != null) {
-//
-//				int commitIndex = Math.min(leaderCommit, raftNode.nodeState.getLastEntry().getIndex());
-//
-//				while (nodeCommitIndex + 1 <= commitIndex) {
-//					LogEntries entry = getNodeLogs.get(nodeCommitIndex);
-//
-//					ApplyMsg msg = new ApplyMsg(raftNode.nodeId, entry.getIndex(), entry.getCommand(), false, null);
-//
-//					try {
-//						raftNode.lib.applyChannel(msg);
-//					} catch (RemoteException e) {
-//
-//						raftNode.lock.unlock();
-//
-//						e.printStackTrace();
-//						return;
-//					}
-//
-//					raftNode.nodeState.setCommitIndex(nodeCommitIndex + 1);
-//					raftNode.nodeState.setLastApplied(nodeCommitIndex + 1);
-//					nodeCommitIndex++;
-//				}
-//			}
-//		}
-//	}
 
 }

@@ -1,7 +1,8 @@
-import lib.*;
 import java.util.ArrayList;
 import java.util.List;
-import raftCore.*;
+
+import lib.GetStateReply;
+import lib.StartReply;
 
 public class RaftTest {
 

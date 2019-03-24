@@ -5,6 +5,10 @@ import lib.ApplyMsg;
 import lib.LogEntries;
 import lib.State;
 
+/**
+ * @author abubber,rvsharma
+ *
+ */
 public class RaftNodeUtility {
 
 	public void setFollower(RaftNode raftnode) {

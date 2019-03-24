@@ -1,4 +1,3 @@
-import lib.*;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
@@ -8,7 +7,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
-import raftCore.*;
+
+import lib.ApplyMsg;
+import lib.Controller;
+import lib.GetStateReply;
+import lib.MessagingLayer;
+import lib.StartReply;
 
 public class Config extends UnicastRemoteObject implements Remote {
 
@@ -110,7 +114,7 @@ public class Config extends UnicastRemoteObject implements Remote {
         for( int i = 0; i < numServers; i++ ) {
 
 
-           this.applyMsgMap.put(i, new LinkedBlockingDeque<ApplyMsg>());
+           this.applyMsgMap.put(i, new LinkedBlockingDeque<>());
            BlockingQueue<ApplyMsg> applyMsgsQ = this.applyMsgMap.get(i);
            int nodeID = i;
 
@@ -257,7 +261,7 @@ public class Config extends UnicastRemoteObject implements Remote {
         int starts = 0;
         long t0 = System.currentTimeMillis();
 
-        while( (System.currentTimeMillis() - t0 ) <10000 ) { /* Wait for 10 seconds before giving up. */
+        while( (System.currentTimeMillis() - t0 ) < 10000 ) { /* Wait for 10 seconds before giving up. */
 
             int index = -1;
 

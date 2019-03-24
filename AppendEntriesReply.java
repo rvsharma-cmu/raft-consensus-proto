@@ -1,8 +1,13 @@
 
 import java.io.Serializable;
 
-@SuppressWarnings("serial")
+
 public class AppendEntriesReply implements Serializable {
+
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = -6733421467958439247L;
 
 	private int term;
 
