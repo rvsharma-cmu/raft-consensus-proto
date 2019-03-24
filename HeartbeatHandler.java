@@ -1,7 +1,6 @@
+
 import java.rmi.RemoteException;
 
-import lib.AppendEntriesArgs;
-import lib.AppendEntriesReply;
 import lib.ApplyMsg;
 import lib.LogEntries;
 import lib.Message;

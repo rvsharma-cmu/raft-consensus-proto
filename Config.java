@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import raftCore.*;
 
 public class Config extends UnicastRemoteObject implements Remote {
 

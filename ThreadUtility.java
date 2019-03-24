@@ -1,9 +1,9 @@
+
 import lib.Message;
-import lib.RequestVoteArgs;
 import lib.State.States;
 
 /*
- * Common utility class for Election Thread and AppendEntriesThread
+ * Common utility class for Election Handler and Heartbeat threads handler
  */
 public class ThreadUtility extends Thread{
 
@@ -22,10 +22,6 @@ public class ThreadUtility extends Thread{
 			this.destId = endID;
 	}
 
-	
-	
-	
-	
 	public void terminateThread() {
 		try {
 			this.join();

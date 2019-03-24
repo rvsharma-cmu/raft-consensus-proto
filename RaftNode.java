@@ -1,21 +1,17 @@
-import java.rmi.RemoteException;
+
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.locks.ReentrantLock;
 
-import lib.AppendEntriesArgs;
-import lib.AppendEntriesReply;
-import lib.ApplyMsg;
+import raftCore.*;
 import lib.GetStateReply;
 import lib.LogEntries;
 import lib.Message;
 import lib.MessageHandling;
 import lib.MessageType;
 import lib.RaftUtilities;
-import lib.RequestVoteArgs;
-import lib.RequestVoteReply;
 import lib.StartReply;
 import lib.State;
 import lib.TransportLib;
@@ -31,7 +27,7 @@ public class RaftNode implements MessageHandling, Runnable {
 	private static final int DEFAULT_INDEX = -1;
 	private static final int DEFAULT_TERM = -1;
 
-	private int nodeId;
+	int nodeId;
 	public int numPeers;
 	private int port;
 
@@ -253,14 +249,14 @@ public class RaftNode implements MessageHandling, Runnable {
 		// Reply false if log doesn’t contain an entry at prevLogIndex
 		// whose term matches prevLogTerm
 
-		checkMessageTerm(appendEntriesArgs);
+		appendEntriesArgs.checkMessageTerm(this);
 
 		//TODO:Refactor this part
 		boolean lastCommitCheck = false;
 
 		if (appendEntriesArgs.getPrevLogIndex() != 0 && appendEntriesArgs.getPrevLogTerm() != 0) {
 
-			lastCommitCheck = checkConsistency(appendEntriesArgs, lastCommitCheck);
+			lastCommitCheck = appendEntriesArgs.checkConsistency(this, lastCommitCheck);
 
 		} else {
 
@@ -274,9 +270,9 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			success = true;
 
-			appendMissingLogs(appendEntriesArgs);
+			appendEntriesArgs.appendMissingLogs(this);
 
-			checkLeaderIndex(appendEntriesArgs);
+			appendEntriesArgs.checkLeaderIndex(this);
 
 			// send the reply
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
@@ -304,7 +300,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		while (true) {
 			
-			// wait for heartbeat to be received from the designated leader 
+			// wait for heart beat to be received from the designated leader 
 			if (nodeState != null && nodeState.getNodeState() != State.States.LEADER) {
 				
 				// generate random timeout
@@ -470,117 +466,6 @@ public class RaftNode implements MessageHandling, Runnable {
 	public void setFollower() {
 		this.nodeState.setNodeState(State.States.FOLLOWER);
 		this.nodeState.setVotedFor(null);
-	}
-
-	/**
-	 * Check the index of the leader If leaderCommit > commitIndex, set commitIndex
-	 * = min(leaderCommit, index of last new entry)
-	 *
-	 * @param appendEntriesArgs
-	 */
-	public void checkLeaderIndex(AppendEntriesArgs appendEntriesArgs) {
-
-		int nodeCommitIndex = this.nodeState.getCommitIndex();
-
-		ArrayList<LogEntries> getNodeLogs = this.nodeState.getLog();
-		LogEntries lastEntry = this.nodeState.getLastEntry();
-
-		// If leaderCommit > commitIndex, set commitIndex =
-		// min(leaderCommit, index of last new entry)
-
-		if (appendEntriesArgs!=null && appendEntriesArgs.leaderCommit > nodeCommitIndex) {
-
-			if (getNodeLogs != null && lastEntry != null) {
-
-				int commitIndex = Math.min(appendEntriesArgs.leaderCommit, this.nodeState.getLastEntry().getIndex());
-
-				while (nodeCommitIndex + 1 <= commitIndex) {
-					LogEntries entry = getNodeLogs.get(nodeCommitIndex);
-
-					ApplyMsg msg = new ApplyMsg(this.nodeId, entry.getIndex(), entry.getCommand(), false, null);
-
-					try {
-						this.lib.applyChannel(msg);
-					} catch (RemoteException e) {
-
-						this.lock.unlock();
-
-						e.printStackTrace();
-						return;
-					}
-
-					this.nodeState.setCommitIndex(nodeCommitIndex + 1);
-					this.nodeState.setLastApplied(nodeCommitIndex + 1);
-					nodeCommitIndex++;
-				}
-			}
-		}
-	}
-
-	/**
-	 * Append missing logs from the leader to follower
-	 * 
-	 * @param appendEntriesArgs
-	 * 
-	 * 
-	 */
-	public void appendMissingLogs(AppendEntriesArgs appendEntriesArgs) {
-
-		for (int i = 0; i < appendEntriesArgs.entries.size(); i++) {
-
-			ArrayList<LogEntries> logs = this.nodeState.getLog();
-			
-			LogEntries entry = appendEntriesArgs.entries.get(i);
-			
-			int index = entry.getIndex();
-			
-			if (logs.size() >= index) {
-
-				LogEntries logEntry = logs.get(index - 1);
-			
-				if (logEntry.getTerm() != entry.getTerm()) {
-				
-					// conflicting entry 
-					// delete the conflicting entries 
-					for (int j = logs.size() - 1; j >=  index - 1; j--) {
-						logs.remove(j);
-					}
-				
-					logs.add(entry);
-				} 
-			} else {
-				
-				logs.add(entry);
-			}
-
-		}
-	}
-
-	public boolean checkConsistency(AppendEntriesArgs appendEntriesArgs, boolean lastCommitCheck) {
-		LogEntries prevLogEntry = null;
-		if (this.nodeState.getLog() != null && this.nodeState.getLog().size() >= appendEntriesArgs.getPrevLogIndex()) {
-
-			prevLogEntry = this.nodeState.getLog().get(appendEntriesArgs.getPrevLogIndex() - 1);
-
-			if (prevLogEntry.getIndex() == appendEntriesArgs.getPrevLogIndex()
-					&& prevLogEntry.getTerm() == appendEntriesArgs.getPrevLogTerm()) {
-
-				lastCommitCheck = true;
-			}
-		}
-		return lastCommitCheck;
-	}
-
-	public void checkMessageTerm(AppendEntriesArgs appendEntriesArgs) {
-
-		// if RPC request or response contains term
-		// term T > currentTerm : set currentTerm = T
-		// convert to FOLLOWER
-
-		if (appendEntriesArgs.getTerm() > this.nodeState.getCurrentTerm()) {
-			this.nodeState.setCurrentTerm(appendEntriesArgs.getTerm());
-			this.nodeState.setNodeState(State.States.FOLLOWER);
-		}
 	}
 
 	/*

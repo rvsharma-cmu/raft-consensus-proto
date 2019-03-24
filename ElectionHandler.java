@@ -1,13 +1,12 @@
 
 
+
 import java.rmi.RemoteException;
 
 import lib.LogEntries;
 import lib.Message;
 import lib.MessageType;
-import lib.RaftUtilities;
-import lib.RequestVoteArgs;
-import lib.RequestVoteReply; 
+import lib.RaftUtilities; 
 
 public class ElectionHandler extends ThreadUtility {
 	
@@ -39,6 +38,7 @@ public class ElectionHandler extends ThreadUtility {
 		}
 
 		if(replyMessage == null){
+			
 			terminateThread();
 			return;
 		}
@@ -47,39 +47,36 @@ public class ElectionHandler extends ThreadUtility {
 		
 		this.node.lock.lock();
 		
-		if(requestVoteReply.getTerm() > node.nodeState.getCurrentTerm())
-		{
+		if(requestVoteReply.getTerm() > node.nodeState.getCurrentTerm()) {
+			// if the server has a smaller term the convert to follower
+			
 			node.nodeState.setCurrentTerm(requestVoteReply.getTerm());
+			
 			setFollower();
 			
-			
-		} else if(requestVoteReply.getTerm() < node.nodeState.getCurrentTerm())
-		{
-			//do nothing
 		} else {
+			
 			synchronized (node.nodeState) {
-				if(requestVoteReply.isVoteGranted() && node.nodeState.getNodeState() == lib.State.States.CANDIDATE)
-				{
+				if(requestVoteReply.isVoteGranted() 
+						&& node.nodeState.getNodeState() == lib.State.States.CANDIDATE){
 					node.numOfVotes++;
 					node.receivedRequest = true;
 					
-					if(node.numOfVotes>node.majorityVotes)
+					if(node.numOfVotes > node.majorityVotes)
 					{
 						node.nodeState.setNodeState(lib.State.States.LEADER);
 						
 						LogEntries lastEntry = node.nodeState.getLastEntry();
 						int lastIndex = 0;
-						if(lastEntry!=null)
+						if(lastEntry != null)
 						{
 							lastIndex = lastEntry.getIndex();
 						}
-						for(int i=0;i<node.numPeers;i++)
-						{
+						for(int i=0 ;i < node.numPeers; i++){
 							node.nodeState.nextIndex[i] = lastIndex+1;
 						}
 						node.heartbeatRPC();
 						node.nodeState.notify();
-						
 						
 					}
 				}

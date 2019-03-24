@@ -1,6 +1,7 @@
 import lib.*;
 import java.util.ArrayList;
 import java.util.List;
+import raftCore.*;
 
 public class RaftTest {
 

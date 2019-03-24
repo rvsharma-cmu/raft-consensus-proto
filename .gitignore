@@ -12,3 +12,7 @@
 /Test1.class
 /Test1$Akanksha.class
 /ElectionHandler.class
+/AppendEntriesArgs.class
+/AppendEntriesReply.class
+/RequestVoteArgs.class
+/RequestVoteReply.class
