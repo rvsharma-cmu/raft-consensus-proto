@@ -98,8 +98,9 @@ public class AppendEntriesArgs implements Serializable {
 		}
 	}
 
-	public boolean checkConsistency(RaftNode raftNode, boolean lastCommitCheck) {
+	public boolean checkConsistency(RaftNode raftNode) {
 		LogEntries prevLogEntry = null;
+		boolean lastCommitCheck = false;
 		if (raftNode.nodeState.getLog() != null && raftNode.nodeState.getLog().size() >= getPrevLogIndex()) {
 
 			prevLogEntry = raftNode.nodeState.getLog().get(getPrevLogIndex() - 1);

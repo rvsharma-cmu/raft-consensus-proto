@@ -18,8 +18,8 @@ import lib.TransportLib;
 
 public class RaftNode implements MessageHandling, Runnable {
 
-	private static final int TIMEOUT_LOW = 100;
-	private static final int TIMEOUT_HIGH = 200;
+	private static final int TIMEOUT_LOW = 250;
+	private static final int TIMEOUT_HIGH = 500;
 
 	boolean receivedRequest;
 	public TransportLib lib;
@@ -76,7 +76,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			// as a leader
 
-			int lastLogIndex = getLastIndex() + 1;
+			int lastLogIndex = RaftNodeUtility.getLastIndex(this) + 1;
 
 			
 			// append the received command to leader
@@ -179,7 +179,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
 			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
-			setFollower();
+			RaftNodeUtility.setFollower(this);
 
 		}
 		
@@ -218,7 +218,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		}
 		requestVoteReply = new RequestVoteReply(this.nodeState.getCurrentTerm(), vote);
 
-		unlockCriticalSection();
+		RaftNodeUtility.unlockCriticalSection(this);
 		return requestVoteReply;
 	}
 
@@ -241,7 +241,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			unlockCriticalSection();
+			RaftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 		}
@@ -252,17 +252,13 @@ public class RaftNode implements MessageHandling, Runnable {
 		appendEntriesArgs.checkMessageTerm(this);
 
 		//TODO:Refactor this part
-		boolean lastCommitCheck = false;
+		boolean lastCommitCheck = true;
 
 		if (appendEntriesArgs.getPrevLogIndex() != 0 && appendEntriesArgs.getPrevLogTerm() != 0) {
 
-			lastCommitCheck = appendEntriesArgs.checkConsistency(this, lastCommitCheck);
+			lastCommitCheck = appendEntriesArgs.checkConsistency(this);
 
-		} else {
-
-			lastCommitCheck = true;
 		}
-
 		if (lastCommitCheck) {
 
 			// consistency check has passed delete the existing entry and
@@ -277,7 +273,7 @@ public class RaftNode implements MessageHandling, Runnable {
 			// send the reply
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			unlockCriticalSection();
+			RaftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 
@@ -287,7 +283,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 			appendEntriesReply = new AppendEntriesReply(this.nodeState.getCurrentTerm(), success);
 
-			unlockCriticalSection();
+			RaftNodeUtility.unlockCriticalSection(this);
 
 			return appendEntriesReply;
 		}
@@ -438,45 +434,9 @@ public class RaftNode implements MessageHandling, Runnable {
 		} 
 	}
 
-	/*
-	 * Helper functions
-	 */
 	
-	/**
-	 * Function that returns the last log entry in the leader logs
-	 * 
-	 * @param lastEntry
-	 * @param logs
-	 * @return
-	 */
-	public int getLastIndex() {
 
-		LogEntries lastEntry = null;	
-		lastEntry = this.nodeState.getLastEntry();
+	
 
-		int prevLastIndex = 0;
-		if (lastEntry != null)
-			prevLastIndex = lastEntry.getIndex();
-		return prevLastIndex;
-	}
 
-	/**
-	 * Set this node as a Follower and reset its vote and votedFor states
-	 */
-	public void setFollower() {
-		this.nodeState.setNodeState(State.States.FOLLOWER);
-		this.nodeState.setVotedFor(null);
-	}
-
-	/*
-	 * Generic class Helper functions
-	 */
-
-	/**
-	 * Method to unlock the critical section
-	 */
-	public void unlockCriticalSection() {
-		this.receivedRequest = true;
-		this.lock.unlock();
-	}
 }
