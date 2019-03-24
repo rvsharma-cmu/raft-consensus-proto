@@ -15,8 +15,8 @@ import lib.TransportLib;
 
 public class RaftNode implements MessageHandling, Runnable {
 
-	private static final int TIMEOUT_LOW = 250;
-	private static final int TIMEOUT_HIGH = 500;
+	private static final int TIMEOUT_LOW = 200;
+	private static final int TIMEOUT_HIGH = 450;
 
 	private static final int START_VOTE = 1;
 
@@ -146,7 +146,7 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		}
 
-		if (type == MessageType.RequestVoteArgs) {
+		else if (type == MessageType.RequestVoteArgs) {
 			RequestVoteReply reply = requestVoteRPC((RequestVoteArgs) requestArgs);
 			replyPayload = RaftUtilities.serialize(reply);
 			replyMessage = new Message(MessageType.RequestVoteReply, msgDstId, msgSrcId, replyPayload);
@@ -178,6 +178,7 @@ public class RaftNode implements MessageHandling, Runnable {
 		RequestVoteReply requestVoteReply = null;
 		this.lock.lock();
 
+		
 		if (requestVoteArgs.terms > this.nodeState.getCurrentTerm()) {
 			this.nodeState.setCurrentTerm(requestVoteArgs.terms);
 			raftNodeUtility.setFollower(this);
@@ -186,21 +187,30 @@ public class RaftNode implements MessageHandling, Runnable {
 
 		// grant vote if the requesting candidate has more updated term
 		// TODO check the error here when indexes do not match
-		if (this.nodeState != null && (this.nodeState.getVotedFor() == null
-				|| this.nodeState.getVotedFor() == requestVoteArgs.candidateId)) {
+		if (this.nodeState != null && (this.nodeState.getVotedFor() == null && requestVoteArgs.terms == this.nodeState.getCurrentTerm())) {
 
 			LogEntries lastEntry = this.nodeState.getLastEntry();
 
 			int lastTerms = 0;
+			int lastIndex = 0;
 
 			if (lastEntry != null) {
 				lastTerms = lastEntry.getTerm();
+				lastIndex = lastEntry.getIndex();
 			}
+			if (lastTerms != requestVoteArgs.lastLogTerm) {
+				if (lastTerms <= requestVoteArgs.lastLogTerm) {
+					/* candidate’s log is at least as up-to-date as receiver’s log, grant vote */
+					vote = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
+				}
+			} else {
+				// or if it has the longer entry 
 
-			if (lastTerms <= requestVoteArgs.lastLogTerm) {
-				/* candidate’s log is at least as up-to-date as receiver’s log, grant vote */
-				vote = true;
-				this.nodeState.setVotedFor(requestVoteArgs.candidateId);
+				if (lastIndex <= requestVoteArgs.lastLogIndex) {
+					vote = true;
+					this.nodeState.setVotedFor(requestVoteArgs.candidateId);
+				}
 			}
 
 		}

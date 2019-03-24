@@ -98,20 +98,7 @@ public class AppendEntriesArgs implements Serializable {
 //		}
 //	}
 //
-//	public boolean checkConsistency(RaftNode raftNode) {
-//		LogEntries prevLogEntry = null;
-//		boolean lastCommitCheck = false;
-//		if (raftNode.nodeState.getLog() != null && raftNode.nodeState.getLog().size() >= getPrevLogIndex()) {
-//
-//			prevLogEntry = raftNode.nodeState.getLog().get(getPrevLogIndex() - 1);
-//
-//			if (prevLogEntry.getIndex() == getPrevLogIndex() && prevLogEntry.getTerm() == getPrevLogTerm()) {
-//
-//				lastCommitCheck = true;
-//			}
-//		}
-//		return lastCommitCheck;
-//	}
+//	
 //
 //	/**
 //	 * Append missing logs from the leader to follower
