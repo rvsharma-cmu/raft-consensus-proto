@@ -12,7 +12,9 @@ import lib.RaftUtilities;
 import lib.StartReply;
 import lib.State;
 import lib.TransportLib;
-
+/*
+ * authors:abubber,rvsharma
+ */
 public class RaftNode implements MessageHandling, Runnable {
 
 	private static final int TIMEOUT_LOW = 200;
